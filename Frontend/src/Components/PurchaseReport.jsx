@@ -108,6 +108,18 @@ const PrintHeader = styled.div`
   }
 `;
 
+  const Footer = styled.footer`
+      text-align: center;
+      padding: 10px;
+      background-color: #164863;
+      color: white;
+      margin-top: 0px;
+      display: none;
+      @media print {
+      display: block;
+    }
+  `;
+
 export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -203,6 +215,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
         </tbody>
 
       </ItemTable>
+      <Footer>
+        Copyright © 2024. All rights reserved to DEPARTMENT of INFORMATION TECHNOLOGY - RMKEC
+      </Footer>
     </Container>
   );
 });
