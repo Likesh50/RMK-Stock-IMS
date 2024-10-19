@@ -11,6 +11,8 @@ import DashBoard from "./Components/Dashboard.jsx";
 import SignupPage from "./Components/SignUp.jsx";
 import PrintPurchaseReport from "./Components/PrintPurchaseReport.jsx";
 import PrintDispatchReport from "./Components/PrintDispatchReport.jsx";
+import ExpiryItems from "./Components/ExpiryItems.jsx";
+import OrderToPlace from "./Components/OrderToPlace.jsx";
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -36,6 +38,8 @@ function App() {
             <Route path="available" element={<AvailableStock />} />
             <Route path="reports" element={<Reports />} />
             <Route path="add" element={<AddItems />} />
+            <Route path="expiry" element={<ExpiryItems />} />
+            <Route path="ordertoplace" element={<OrderToPlace />} />
             <Route path="reports/dispatch-report" element={<PrintDispatchReport/>} />
             <Route path="reports/purchase-report" element={<PrintPurchaseReport/>} />
           </Route>

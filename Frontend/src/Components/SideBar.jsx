@@ -103,6 +103,14 @@ const SideBar = () => {
             <img src={menu} width="40px" height="40px" alt="Add Event menu" />
             Create users
           </Link>
+          <Link to="/adminsignup">
+            <img src={menu} width="40px" height="40px" alt="Add Event menu" />
+            Create users
+          </Link>
+          <Link to="/adminsignup">
+            <img src={menu} width="40px" height="40px" alt="Add Event menu" />
+            Create users
+          </Link>
         </SidebarItem>)}
       </SidebarList>
     </SidebarContainer>

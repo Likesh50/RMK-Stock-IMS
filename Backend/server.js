@@ -11,17 +11,25 @@ const Dispatch = require('./Routes/Dispatch');
 const addItems = require('./Routes/addItems');
 const graphItem = require('./Routes/graph');
 const Reports=require("./Routes/Report");
+const miniquant=require("./Routes/miniquant");
+const itemtoexpire=require("./Routes/expiry");
 const db = require('./db');
-app.use(cors());
+app.use(cors({
+  origin: '*',  // You can specify your frontend URL here instead of '*'
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+}));
+
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/purchase',purchaseRtr);
 app.use('/stocks',Stocks);
+
 app.use('/dispatch',Dispatch);
 app.use('/addItems',addItems);
-app.use('/event',Event);
 app.use('/graph',graphItem);
 app.use('/report',Reports);
+app.use("/minquant",miniquant);
+app.use("/expiry",itemtoexpire);
 const JWT_SECRET = 'rmkecmessmanagement-IT-2022-2026';
 
 app.post('/login', (req, res) => {
