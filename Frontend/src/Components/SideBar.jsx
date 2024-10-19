@@ -7,6 +7,8 @@ import Available from '../assets/Available.png';
 import reports from '../assets/reports.png';
 import add from '../assets/add.png';
 import menu from '../assets/menu.png';
+import order from '../assets/orderitem.png';
+import expiry from "../assets/expiry.png";
 import view from '../assets/view.png';
 import dashboard from '../assets/dashboard.png';
 
@@ -98,15 +100,19 @@ const SideBar = () => {
             Add Items
           </Link>
         </SidebarItem>)}
+        <SidebarItem className={isActive('/dashboard/expiry')}>
+          <Link to="expiry">
+            <img src={expiry} width="40px" height="40px" alt="Reports" />
+            Expiring Items
+          </Link>
+        </SidebarItem>
+        <SidebarItem className={isActive('/dashboard/ordertoplace')}>
+          <Link to="ordertoplace">
+            <img src={order} width="40px" height="40px" alt="Reports" />
+            Items To Order
+          </Link>
+        </SidebarItem>
         {role==="Admin" &&  (<SidebarItem className={isActive('/adminsignup')}>
-          <Link to="/adminsignup">
-            <img src={menu} width="40px" height="40px" alt="Add Event menu" />
-            Create users
-          </Link>
-          <Link to="/adminsignup">
-            <img src={menu} width="40px" height="40px" alt="Add Event menu" />
-            Create users
-          </Link>
           <Link to="/adminsignup">
             <img src={menu} width="40px" height="40px" alt="Add Event menu" />
             Create users
