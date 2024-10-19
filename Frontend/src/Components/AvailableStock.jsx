@@ -161,7 +161,7 @@ function AvailableStock() {
             <tr key={index}>
               <td>{item.itemName}</td>
               <td>{item.category}</td>
-              <td>{formatNumber(item.quantity)}</td>
+              <td>{formatNumber(item.quantity)+" "+item.unit}</td>
               <td>{moment(item.expiry_date).format('YYYY-MM-DD')}</td>
               <td>{item.daysLeftToExpire >= 0 ? item.daysLeftToExpire : 'Expired'}</td>
               <td>{item.daysSincePurchase}</td>

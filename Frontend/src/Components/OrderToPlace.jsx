@@ -132,7 +132,7 @@ function OrderToPlace() {
 
   return (
     <Container>
-      <h1>AVAILABLE STOCK</h1>
+      <h1>ITEMS TO ORDER</h1>
       <SearchContainer>
         <input
           type="text"
@@ -149,8 +149,7 @@ function OrderToPlace() {
             <th>ITEM NAME</th>
             <th>CATEGORY</th>
             <th>MINIMUM QUANTITY</th>
-            <th>TOTAL QUANTITY</th>
-            <th>UNIT</th>
+            <th>AVAILABLE QUANTITY</th>
         </tr>
         </thead>
 
@@ -159,9 +158,8 @@ function OrderToPlace() {
             <tr key={index}>
             <td>{item.item_name}</td>
             <td>{item.category}</td>
-            <td>{item.min_quantity}</td>
-            <td>{item.total_quantity}</td>
-            <td>{item.unit}</td>
+            <td>{item.min_quantity+" "+item.unit}</td>
+            <td>{item.total_quantity+" "+item.unit}</td>
             </tr>
         )) : (
             <tr>

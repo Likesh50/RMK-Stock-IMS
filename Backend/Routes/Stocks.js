@@ -11,6 +11,7 @@ router.get('/availablestock', async (req, res) => {
             SELECT 
                 i.item_name AS itemName,
                 i.category AS category,
+                i.unit AS unit,
                 s.quantity AS quantity,
                 p.expiry_date AS expiryDate,
                 p.purchase_date AS purchaseDate
@@ -35,13 +36,12 @@ router.get('/availablestock', async (req, res) => {
                 itemName: stock.itemName,
                 category: stock.category,
                 quantity: stock.quantity,
+                unit:stock.unit,
                 expiry_date: stock.expiryDate,
                 purchase_date: stock.purchaseDate,
                 daysLeftToExpire: calculateDaysLeft(stock.expiryDate),
                 daysSincePurchase: calculateDaysSince(stock.purchaseDate)
             }));
-
-            // Send the response back to the frontend
             res.json({
                 success: true,
                 data: formattedData
