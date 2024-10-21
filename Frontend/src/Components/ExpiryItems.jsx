@@ -90,21 +90,28 @@ function ExpiryItems() {
   const [curr, setCurr] = useState([]);
   const [filteredCurr, setFilteredCurr] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [days, setDays] = useState(30); // Default to 30 days
 
   useEffect(() => {
-    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/expiry/expiry-items`)
+    fetchExpiryItems();
+  }, []);
+  
+  const fetchExpiryItems = () => {
+    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/expiry/expiry-items`, {
+      params: { days } // Send the number of days as a query parameter
+    })
       .then(res => {
         const data = res.data.map(stock => ({
           ...stock,
           daysLeftToExpire: calculateDaysLeft(stock.expiryDate),
-          daysSincePurchase: calculateDaysSince(stock.manufacturingDate), // Assuming this field is needed
+          daysSincePurchase: calculateDaysSince(stock.manufacturingDate),
         }));
         setCurr(data); 
-        setFilteredCurr(data); 
+        setFilteredCurr(data);
         console.log(data);
       })
       .catch(err => console.error("Error fetching expiry items:", err));
-  }, []);
+  };
   
 
   const calculateDaysLeft = (expiryDate) => {
@@ -135,7 +142,7 @@ function ExpiryItems() {
 
   return (
     <Container>
-      <h1>ITEMS TO EXPIRE</h1>
+      <h1>EXPIRING ITEMS</h1>
       <SearchContainer>
         <input
           type="text"
@@ -144,8 +151,16 @@ function ExpiryItems() {
           value={searchTerm}
           onChange={handleSearch} 
         />
-        <button className="search-button" onClick={() => handleSearch({ target: { value: searchTerm } })}>Search</button>
+        <input
+          type="number"
+          className="search-input"
+          placeholder="Days"
+          value={days}
+          onChange={e => setDays(e.target.value)}  // Update the number of days
+        />
+        <button className="search-button" onClick={() => fetchExpiryItems()}>Search</button>
       </SearchContainer>
+
       <TableHeader>
         <thead>
           <tr>

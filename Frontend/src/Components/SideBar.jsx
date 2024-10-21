@@ -11,7 +11,7 @@ import order from '../assets/orderitem.png';
 import expiry from "../assets/expiry.png";
 import view from '../assets/view.png';
 import dashboard from '../assets/dashboard.png';
-
+import pen from '../assets/pen.png';
 const SidebarContainer = styled.div`
   background-color: white;
   min-height: 100vh; 
@@ -98,6 +98,12 @@ const SideBar = () => {
           <Link to="add">
             <img src={add} width="40px" height="40px" alt="Add Items" />
             Add Items
+          </Link>
+        </SidebarItem>)}
+        {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/updateitem')}>
+          <Link to="./updateitem">
+            <img src={pen} width="50px" height="40px" alt="updateitem" />
+            Update item
           </Link>
         </SidebarItem>)}
         <SidebarItem className={isActive('/dashboard/expiry')}>

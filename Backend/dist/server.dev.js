@@ -30,6 +30,8 @@ var miniquant = require("./Routes/miniquant");
 
 var itemtoexpire = require("./Routes/expiry");
 
+var itemRoutes = require('./Routes/items');
+
 var db = require('./db');
 
 app.use(cors({
@@ -49,6 +51,7 @@ app.use('/graph', graphItem);
 app.use('/report', Reports);
 app.use("/minquant", miniquant);
 app.use("/expiry", itemtoexpire);
+app.use('/items', itemRoutes);
 var JWT_SECRET = 'rmkecmessmanagement-IT-2022-2026';
 app.post('/login', function (req, res) {
   var _req$body = req.body,

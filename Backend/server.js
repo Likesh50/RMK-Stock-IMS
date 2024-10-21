@@ -13,7 +13,9 @@ const graphItem = require('./Routes/graph');
 const Reports=require("./Routes/Report");
 const miniquant=require("./Routes/miniquant");
 const itemtoexpire=require("./Routes/expiry");
+const itemRoutes = require('./Routes/items');
 const db = require('./db');
+
 app.use(cors({
   origin: '*',  // You can specify your frontend URL here instead of '*'
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -30,6 +32,7 @@ app.use('/graph',graphItem);
 app.use('/report',Reports);
 app.use("/minquant",miniquant);
 app.use("/expiry",itemtoexpire);
+app.use('/items', itemRoutes);
 const JWT_SECRET = 'rmkecmessmanagement-IT-2022-2026';
 
 app.post('/login', (req, res) => {
