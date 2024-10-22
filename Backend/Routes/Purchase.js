@@ -1,5 +1,6 @@
 var express = require('express');
 const db = require('../db');
+const moment = require('moment');
 var router = express.Router();
 router.get('/getItems', async (req, res) => {
     try {
@@ -82,7 +83,38 @@ router.get('/getItems', async (req, res) => {
     
   });
 
-  
+  router.get('/getPurchases/:date', async (req, res) => {
+    const date = req.params.date;
+
+    try {
+        const [rows] = await db.promise().query('SELECT * FROM purchases WHERE purchase_date = ?', [date]);
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('Error fetching purchases:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// Endpoint to update a purchase record
+router.post('/updatePurchase', async (req, res) => {
+    const { purchase_id, quantity, invoice_no, amount, shop_address, manufacturing_date, expiry_date } = req.body;
+    const formattedManufacturingDate = moment(manufacturing_date).format('YYYY-MM-DD');
+    const formattedExpiryDate = moment(expiry_date).format('YYYY-MM-DD');
+    if (!purchase_id || quantity === undefined || !invoice_no || amount === undefined || !shop_address || !manufacturing_date || !expiry_date) {
+        return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    try {
+        const updateQuery = `UPDATE purchases SET quantity = ?, invoice_no = ?, amount = ?, shop_address = ?, manufacturing_date = ?, expiry_date = ? WHERE purchase_id = ?`;
+        await db.promise().query(updateQuery, [quantity, invoice_no, amount, shop_address, formattedManufacturingDate, formattedExpiryDate, purchase_id]);
+
+        res.status(200).json({ message: 'Purchase updated successfully' });
+    } catch (error) {
+        console.error('Error updating purchase:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
   
   
     
