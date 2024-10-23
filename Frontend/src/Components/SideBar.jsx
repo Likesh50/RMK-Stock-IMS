@@ -11,6 +11,7 @@ import order from '../assets/orderitem.png';
 import expiry from "../assets/expiry.png";
 import editdispatch from "../assets/edit-dispatch.png";
 import editpurchase from "../assets/edit-purchase.png";
+import Itemlist from "../assets/itemlist.png";
 import view from '../assets/view.png';
 import dashboard from '../assets/dashboard.png';
 import pen from '../assets/pen.png';
@@ -134,6 +135,12 @@ const SideBar = () => {
           <Link to="editdispatch">
             <img src={editdispatch} width="40px" height="40px" alt="Reports" />
             Edit Dispatch
+          </Link>
+        </SidebarItem>
+        <SidebarItem className={isActive('/dashboard/itemtable')}>
+          <Link to="itemtable">
+            <img src={Itemlist} width="40px" height="40px" alt="Reports" />
+            Item List
           </Link>
         </SidebarItem>
         
