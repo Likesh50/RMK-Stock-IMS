@@ -70,6 +70,7 @@ const Label = styled.label`
 
 const UpdateItems = () => {
   const [items, setItems] = useState([]); // State to store all items for the dropdown
+  const [categories, setCategories] = useState([]); // State to store categories
   const [itemData, setItemData] = useState({
     item_name: '',
     unit: '',
@@ -99,6 +100,16 @@ const UpdateItems = () => {
     }
   }, [selectedItemId]);
 
+  useEffect(() => {
+    // Fetch categories for the category dropdown
+    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/getcategory`)
+      .then(res => {
+        setCategories(res.data); 
+        console.log(res.data)// Assuming the API returns an array of categories
+      })
+      .catch(err => console.error('Error fetching categories:', err));
+  }, []);
+
   const handleInputChange = e => {
     setItemData({
       ...itemData,
@@ -116,24 +127,6 @@ const UpdateItems = () => {
       .catch(err => {
         console.error('Error updating item:', err);
         toast.error('Error updating item.');
-      });
-  };
-
-  const handleDeleteItem = () => {
-    Axios.delete(`${import.meta.env.VITE_RMK_MESS_URL}/items/${selectedItemId}`)
-      .then(res => {
-        toast.success('Item deleted successfully!');
-        setItemData({
-          item_name: '',
-          unit: '',
-          category: '',
-          min_quantity: 0,
-        });
-        setSelectedItemId(''); // Reset after deletion
-      })
-      .catch(err => {
-        console.error('Error deleting item:', err);
-        setSuccessMessage('Error deleting item.');
       });
   };
 
@@ -175,12 +168,19 @@ const UpdateItems = () => {
           />
 
           <Label>Category:</Label>
-          <Input
-            type="text"
+          <Select
             name="category"
             value={itemData.category}
             onChange={handleInputChange}
-          />
+          >
+            <option value="">Select a category</option>
+            {categories.map((category,idx) => (
+              <option key={idx} value={category.category}>
+                {category.category}
+              </option>
+            ))}
+          </Select>
+
 
           <Label>Minimum Quantity:</Label>
           <Input
@@ -193,17 +193,11 @@ const UpdateItems = () => {
           {/* Update Button */}
           <Button type="submit">Update Item</Button>
 
-          {/* Delete Button */}
-          <Button type="button" delete onClick={handleDeleteItem}>
-            Delete Item
-          </Button>
-
           {/* Success message */}
           {successMessage && <p>{successMessage}</p>}
         </Form>
       )}
       <ToastContainer />
-
     </Container>
   );
 };
