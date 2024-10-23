@@ -128,9 +128,17 @@ function EditPurchase() {
 
   const handleChange = (index, field, value) => {
     const updatedPurchases = [...purchases];
-    updatedPurchases[index][field] = value; // Update the specific field in the purchase object
+  
+    // If the field is a date, update the value directly
+    if (field === 'manufacturing_date' || field === 'expiry_date') {
+      updatedPurchases[index][field] = value; // No need to format, just use the value directly
+    } else {
+      updatedPurchases[index][field] = value; // Update for other fields
+    }
+    
     setPurchases(updatedPurchases); // Update state with modified purchases
   };
+  
 
   return (
     <Container>
@@ -162,37 +170,59 @@ function EditPurchase() {
         <tbody>
           {purchases.length > 0 ? purchases.map((purchase, index) => (
             <tr key={purchase.purchase_id}>
-              <td>{purchase.item_name}</td>
+              {/* Non-editable field for item_name */}
               <td>
-                <input
-                  type="number"
-                  value={purchase.quantity}
-                  onChange={(e) => handleChange(index, 'quantity', e.target.value)} // Use handleChange to update quantity
-                />
+              {purchase.item_name}
               </td>
+              
+              {/* Editable fields */}
+              <td>
+              {purchase.quantity}
+              </td>
+              
               <td>
                 <input
                   type="text"
                   value={purchase.invoice_no}
-                  onChange={(e) => handleChange(index, 'invoice_no', e.target.value)} // Use handleChange to update invoice no
+                  onChange={(e) => handleChange(index, 'invoice_no', e.target.value)} // Editable field for invoice no
                 />
               </td>
+              
               <td>
                 <input
                   type="number"
                   value={purchase.amount}
-                  onChange={(e) => handleChange(index, 'amount', e.target.value)} // Use handleChange to update amount
+                  onChange={(e) => handleChange(index, 'amount', e.target.value)} // Editable field for amount
                 />
               </td>
+              
               <td>
-                <input
-                  type="text"
-                  value={purchase.shop_address}
-                  onChange={(e) => handleChange(index, 'shop_address', e.target.value)} // Use handleChange to update shop address
-                />
-              </td>
-              <td>{moment(purchase.manufacturing_date).format('YYYY-MM-DD')}</td>
-              <td>{moment(purchase.expiry_date).format('YYYY-MM-DD')}</td>
+                          <input
+                            type="text"
+                            value={purchase.shop_address}
+                            onChange={(e) => handleChange(index, 'shop_address', e.target.value)} // Editable field for shop address
+                          />
+                        </td>
+
+                        {/* Non-editable fields for manufacturing and expiry dates */}
+                        <td>
+            <input
+              type="date"
+              value={moment(purchase.manufacturing_date).format('YYYY-MM-DD')}
+              onChange={(e) => handleChange(index, 'manufacturing_date', e.target.value)}
+            />
+          </td>
+
+          <td>
+            <input
+              type="date"
+              value={moment(purchase.expiry_date).format('YYYY-MM-DD')}
+              onChange={(e) => handleChange(index, 'expiry_date', e.target.value)}
+            />
+          </td>
+
+
+
               <td>
                 <UpdateButton onClick={() => handleUpdate(purchase)}>Update</UpdateButton>
               </td>
@@ -203,6 +233,7 @@ function EditPurchase() {
             </tr>
           )}
         </tbody>
+
       </TableHeader>
       <ToastContainer />
     </Container>

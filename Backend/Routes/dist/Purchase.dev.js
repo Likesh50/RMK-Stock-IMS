@@ -142,8 +142,7 @@ router.post('/add', function _callee3(req, res) {
           _ref5 = _context3.sent;
           _ref6 = _slicedToArray(_ref5, 1);
           itemResult = _ref6[0];
-          item_id = itemResult[0].item_id; // Insert the purchase record
-
+          item_id = itemResult[0].item_id;
           insertPurchaseQuery = "INSERT INTO purchases (item_id, quantity, invoice_no, amount, shop_address, purchase_date,manufacturing_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
           _context3.next = 35;
           return regeneratorRuntime.awrap(db.promise().query(insertPurchaseQuery, [item_id, quantity, invoice, amount, address, date, rawDate, FormattedManufacturingDate]));
@@ -152,9 +151,7 @@ router.post('/add', function _callee3(req, res) {
           _ref7 = _context3.sent;
           _ref8 = _slicedToArray(_ref7, 1);
           purchaseResult = _ref8[0];
-          // Get the inserted purchase ID
-          purchase_id = purchaseResult.insertId; // Insert the record into the stock table
-
+          purchase_id = purchaseResult.insertId;
           insertStockQuery = "INSERT INTO stock (purchase_id, item_id, quantity) VALUES (?, ?, ?)";
           _context3.next = 42;
           return regeneratorRuntime.awrap(db.promise().query(insertStockQuery, [purchase_id, item_id, quantity]));
@@ -229,7 +226,7 @@ router.get('/getPurchases/:date', function _callee4(req, res) {
           date = req.params.date;
           _context4.prev = 1;
           _context4.next = 4;
-          return regeneratorRuntime.awrap(db.promise().query('SELECT * FROM purchases WHERE purchase_date = ?', [date]));
+          return regeneratorRuntime.awrap(db.promise().query('SELECT i.item_name,p.* FROM purchases p,items i WHERE p.item_id=i.item_id and p.purchase_date = ?', [date]));
 
         case 4:
           _ref9 = _context4.sent;
@@ -253,8 +250,7 @@ router.get('/getPurchases/:date', function _callee4(req, res) {
       }
     }
   }, null, null, [[1, 10]]);
-}); // Endpoint to update a purchase record
-
+});
 router.post('/updatePurchase', function _callee5(req, res) {
   var _req$body, purchase_id, quantity, invoice_no, amount, shop_address, manufacturing_date, expiry_date, formattedManufacturingDate, formattedExpiryDate, updateQuery;
 

@@ -59,14 +59,11 @@ router.get('/getItems', async (req, res) => {
         const [itemResult] = await db.promise().query(getItemQuery, [itemName, category]);
         const item_id = itemResult[0].item_id;
 
-        // Insert the purchase record
         const insertPurchaseQuery = `INSERT INTO purchases (item_id, quantity, invoice_no, amount, shop_address, purchase_date,manufacturing_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
         const [purchaseResult] = await db.promise().query(insertPurchaseQuery, [item_id, quantity, invoice, amount, address, date, rawDate, FormattedManufacturingDate]);
 
-        // Get the inserted purchase ID
         const purchase_id = purchaseResult.insertId;
 
-        // Insert the record into the stock table
         const insertStockQuery = `INSERT INTO stock (purchase_id, item_id, quantity) VALUES (?, ?, ?)`;
         await db.promise().query(insertStockQuery, [purchase_id, item_id, quantity]);
 
@@ -85,9 +82,9 @@ router.get('/getItems', async (req, res) => {
 
   router.get('/getPurchases/:date', async (req, res) => {
     const date = req.params.date;
-
+    
     try {
-        const [rows] = await db.promise().query('SELECT * FROM purchases WHERE purchase_date = ?', [date]);
+        const [rows] = await db.promise().query('SELECT i.item_name,p.* FROM purchases p,items i WHERE p.item_id=i.item_id and p.purchase_date = ?', [date]);
         res.status(200).json(rows);
     } catch (error) {
         console.error('Error fetching purchases:', error);
@@ -95,7 +92,6 @@ router.get('/getItems', async (req, res) => {
     }
 });
 
-// Endpoint to update a purchase record
 router.post('/updatePurchase', async (req, res) => {
     const { purchase_id, quantity, invoice_no, amount, shop_address, manufacturing_date, expiry_date } = req.body;
     const formattedManufacturingDate = moment(manufacturing_date).format('YYYY-MM-DD');
