@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
+import dayjs from 'dayjs';
 import { DemoContainer } from '@mui/x-date-pickers/internals/demo';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -350,7 +351,7 @@ const Purchase = () => {
 
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DemoContainer components={['DatePicker']}>
-            <DatePicker label="" className="date-picker" onChange={(newDate) => setDate(newDate)}
+            <DatePicker label="" className="date-picker" shouldDisableDate={(date) => date.isAfter(dayjs())} onChange={(newDate) => setDate(newDate)}
               value={date}
               format="YYYY-MM-DD" />
           </DemoContainer>

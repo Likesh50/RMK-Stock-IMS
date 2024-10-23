@@ -17,7 +17,7 @@
     "axios": "^1.7.2",
     "bootstrap": "^5.3.3",
     "date-fns": "^3.6.0",
-    "dayjs": "^1.11.12",
+    "dayjs": "^1.11.13",
     "file-saver": "^2.0.5",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.30.1",
