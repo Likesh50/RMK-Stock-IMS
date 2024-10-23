@@ -14,6 +14,8 @@ import PrintDispatchReport from "./Components/PrintDispatchReport.jsx";
 import ExpiryItems from "./Components/ExpiryItems.jsx";
 import OrderToPlace from "./Components/OrderToPlace.jsx";
 import UpdateItems from "./Components/UpdateItems.jsx";
+import EditPurchase from "./Components/EditPurchase.jsx";
+import EditDispatch from "./Components/EditDispatch.jsx";
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -37,11 +39,13 @@ function App() {
             <Route path="dispatch" element={<Dispatch />} />
             <Route path="purchase" element={<Purchase/>} />
             <Route path="available" element={<AvailableStock />} />
+            <Route path="editpurchase" element={<EditPurchase />} />
             <Route path="reports" element={<Reports />} />
             <Route path="add" element={<AddItems />} />
             <Route path="expiry" element={<ExpiryItems />} />
             <Route path="ordertoplace" element={<OrderToPlace />} />
             <Route path="updateitem" element={<UpdateItems/>}/>
+            <Route path="editdispatch" element={<EditDispatch/>}/>
             <Route path="reports/dispatch-report" element={<PrintDispatchReport/>} />
             <Route path="reports/purchase-report" element={<PrintPurchaseReport/>} />
           </Route>

@@ -160,6 +160,15 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     );
   }
 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
   return (
     <Container ref={ref} className="print-container">
       <PrintHeader>
@@ -170,8 +179,8 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       </PrintHeader>
       <h1>Dispatch Report</h1>
       <DateRange>
-        <h2>From: {fromDate}</h2>
-        <h2>To: {toDate}</h2>
+        <h2>From: {formatDate(fromDate)}</h2>
+        <h2>To: {formatDate(toDate)}</h2>
       </DateRange>
       <ItemTable>
         <thead>
