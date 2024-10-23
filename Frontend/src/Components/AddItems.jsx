@@ -15,7 +15,7 @@ const Heading = styled.h1`
   margin-bottom: 20px;
 `;
 
-const SubHeading=styled.h3`
+const SubHeading = styled.h3`
   color: #164863;
   margin-top: 20px;
 `;
@@ -119,8 +119,9 @@ const ErrorText = styled.div`
 const AddItems = () => {
   const [itemName, setItemName] = useState("");
   const [category, setCategory] = useState("");
-  const [unit, setUnit]=useState("");
-  const [minimum, setMinimum]=useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [unit, setUnit] = useState("");
+  const [minimum, setMinimum] = useState("");
   const [items, setItems] = useState([]);
   const [itemsAvail, setItemsAvail] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -160,10 +161,12 @@ const AddItems = () => {
       setFilteredItems([]);
     }
   };
-  
 
   const handleCategoryChange = (event) => {
     setCategory(event.target.value);
+    if (event.target.value === "Others") {
+      setNewCategory(""); // Reset new category input when "Others" is selected
+    }
   };
 
   const handleSubmit = async () => {
@@ -172,7 +175,9 @@ const AddItems = () => {
       return;
     }
 
-    if (!category) {
+    const finalCategory = category === "Others" ? newCategory : category;
+
+    if (!finalCategory) {
       toast.error("Please select a category before adding.");
       return;
     }
@@ -188,13 +193,14 @@ const AddItems = () => {
     }
 
     try {
-      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/insert`, { itemName, category, unit, minimum });
+      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/insert`, { itemName, category: finalCategory, unit, minimum });
       toast.success("Item added successfully");
       
       setItemName("");
       setCategory("");
       setUnit("");
       setMinimum("");
+      setNewCategory("");
       setFilteredItems([]);
     } catch (error) {
       toast.error(error.response ? error.response.data : 'An error occurred while adding the item.');
@@ -212,7 +218,6 @@ const AddItems = () => {
             <Th>Category</Th>
             <Th>Minimum Quantity</Th>
             <Th>Unit</Th>
-            
           </tr>
         </thead>
         <tbody>
@@ -227,10 +232,20 @@ const AddItems = () => {
                     {item.category}
                   </option>
                 ))}
+                <option value="Others">Others</option>
               </Select>
+              {category === "Others" && (
+                <Input
+                  value={newCategory}
+                  placeholder="Enter new category"
+                  onChange={(e) => setNewCategory(e.target.value)}
+                />
+              )}
             </Td>
-            <Td><Input value={minimum} placeholder="Minimum Quantity" onChange={(e)=> setMinimum(e.target.value)} /></Td>
-            <Td><Input value={unit} placeholder="UNIT" onChange={(e)=> setUnit(e.target.value)} /></Td>
+            <Td>
+              <Input value={minimum} placeholder="Minimum Quantity" onChange={(e) => setMinimum(e.target.value)} />
+            </Td>
+            <Td><Input value={unit} placeholder="UNIT" onChange={(e) => setUnit(e.target.value)} /></Td>
           </tr>
         </tbody>
       </Table>
@@ -246,7 +261,6 @@ const AddItems = () => {
               <Th>Category</Th>
               <Th>Minimum Quantity</Th>
               <Th>Unit</Th>
-              
             </tr>
           </thead>
           <tbody>
@@ -256,7 +270,6 @@ const AddItems = () => {
                 <Td>{item.category}</Td>
                 <Td>{item.min_quantity}</Td>
                 <Td>{item.unit}</Td>
-                
               </tr>
             ))}
           </tbody>

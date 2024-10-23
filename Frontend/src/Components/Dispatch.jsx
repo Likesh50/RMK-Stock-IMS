@@ -5,6 +5,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import styled from 'styled-components';
 import axios from 'axios';
+
+
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import dayjs from 'dayjs';
@@ -325,7 +327,7 @@ function Dispatch() {
       <h1>DISPATCH</h1>
       <FormContainer>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DatePicker label="Select date" value={selectedDate} onChange={setSelectedDate} />
+          <DatePicker label="Select date" value={selectedDate} onChange={setSelectedDate} shouldDisableDate={(date) => date.isAfter(dayjs())}/>
         </LocalizationProvider>
         <Records>
           <InputNumber type='number' placeholder='No of rows to be added' ref={numRecordsRef} />
@@ -365,7 +367,7 @@ function Dispatch() {
                   <option value="">Select Expiry Date</option>
                   {expiryDates[row.id]?.map((exp, idx) => (
                     <option key={idx} value={exp.expiry_date}>
-                      {dayjs(exp.expiry_date).format("YYYY-MM-DD")}
+                      {dayjs(exp.expiry_date).format("DD-MM-YYYY")}
                     </option>
                   ))}
                 </select>

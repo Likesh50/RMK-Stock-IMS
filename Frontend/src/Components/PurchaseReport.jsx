@@ -209,9 +209,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
                 <td>{row.invoice_no}</td>
                 <td>{row.amount}</td>
                 <td>{row.shop_address}</td>
-                <td>{new Date(row.purchase_date).toLocaleDateString('en-US')}</td>
-                <td>{new Date(row.manufacturing_date).toLocaleDateString('en-US')}</td>
-                <td>{new Date(row.expiry_date).toLocaleDateString('en-US')}</td>
+                <td>{new Date(row.purchase_date).toLocaleDateString('en-GB')}</td>
+                <td>{new Date(row.manufacturing_date).toLocaleDateString('en-GB')}</td>
+                <td>{new Date(row.expiry_date).toLocaleDateString('en-GB')}</td>
               </tr>
             ))
             ) : (

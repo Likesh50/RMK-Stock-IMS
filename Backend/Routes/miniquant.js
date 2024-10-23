@@ -5,23 +5,23 @@ const router = express.Router();
 router.get('/minquant', (req, res) => {
   const query = `
     SELECT 
-      i.item_name, 
-      i.min_quantity, 
-      SUM(s.quantity) AS total_quantity, 
-      i.unit, 
-      i.category
+    i.item_name, 
+    i.min_quantity, 
+    COALESCE(SUM(s.quantity), 0) AS total_quantity, 
+    i.unit, 
+    i.category
     FROM 
-      items i
-    JOIN 
-      stock s ON i.item_id = s.item_id
+        items i
+    LEFT JOIN 
+        stock s ON i.item_id = s.item_id
     GROUP BY 
-      i.item_id, 
-      i.item_name, 
-      i.min_quantity, 
-      i.unit, 
-      i.category
+        i.item_id, 
+        i.item_name, 
+        i.min_quantity, 
+        i.unit, 
+        i.category
     HAVING 
-      total_quantity < i.min_quantity;
+        (total_quantity < i.min_quantity) OR (total_quantity = 0 AND i.min_quantity > 0);
   `;
 
   // Use db.query instead of connection.query
