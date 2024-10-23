@@ -375,7 +375,7 @@ const Purchase = () => {
             <th>Manufacture</th>
             <th>Use Before</th>
             <th>Invoice</th>
-            <th>Amount</th>
+            <th>Rate</th>
             <th>Shop Address</th>
             <th>Actions</th>
           </tr>

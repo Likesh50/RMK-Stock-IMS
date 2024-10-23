@@ -167,9 +167,11 @@ function ExpiryItems() {
             <th>ITEM</th>
             <th>CATEGORY</th>
             <th>QUANTITY</th>
-            <th>EXPIRY DATE</th>
-            <th>DAYS LEFT TO EXPIRE</th>
+            
             <th>DAYS SINCE PURCHASE</th>
+            <th>DAYS LEFT TO EXPIRE</th>
+            <th>EXPIRY DATE</th>
+            
           </tr>
         </thead>
         <tbody>
@@ -178,9 +180,11 @@ function ExpiryItems() {
             <td>{item.itemName}</td>
             <td>{item.category}</td>
             <td>{formatNumber(item.quantity)+" "+item.unit}</td>
-            <td>{moment(item.expiryDate).format('YYYY-MM-DD')}</td>
-            <td>{item.daysLeftToExpire >= 0 ? item.daysLeftToExpire : 'Expired'}</td>
+            
             <td>{item.daysSincePurchase}</td>
+            <td>{item.daysLeftToExpire >= 0 ? item.daysLeftToExpire : 'Expired'}</td>
+            <td>{moment(item.expiryDate).format('DD-MM-YYYY')}</td>
+            
             </tr>
         )) : (
             <tr>

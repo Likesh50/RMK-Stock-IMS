@@ -365,7 +365,7 @@ function Dispatch() {
                   <option value="">Select Expiry Date</option>
                   {expiryDates[row.id]?.map((exp, idx) => (
                     <option key={idx} value={exp.expiry_date}>
-                      {dayjs(exp.expiry_date).format("YYYY-MM-DD")}
+                      {dayjs(exp.expiry_date).format("DD-MM-YYYY")}
                     </option>
                   ))}
                 </select>

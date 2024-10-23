@@ -197,7 +197,7 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
                   <td>{row.item_name}</td>
                   <td>{row.category}</td>
                   <td>{row.quantity}</td>
-                  <td>{new Date(row.dispatch_date).toLocaleDateString('en-US')}</td>
+                  <td>{new Date(row.dispatch_date).toLocaleDateString('en-GB')}</td>
                   <td>{row.location}</td>
                   <td>{row.receiver}</td>
                   <td>{row.incharge}</td>
