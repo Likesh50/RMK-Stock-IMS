@@ -193,7 +193,7 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
             <th>Location</th>
             <th>Receiver</th>
             <th>Incharge</th>
-            
+            <th>Time</th>
           </tr>
         </thead>
         <tbody>
@@ -210,6 +210,7 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
                   <td>{row.location}</td>
                   <td>{row.receiver}</td>
                   <td>{row.incharge}</td>
+                  <td>{row.dispatch_time?row.dispatch_time:"NA"}</td>
                 </tr>
                 
               );

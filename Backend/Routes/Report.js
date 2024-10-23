@@ -23,7 +23,8 @@ router.get('/dispatchReport', async (req, res) => {
     d.dispatch_date,
     d.location,
     d.receiver,
-    d.incharge
+    d.incharge,
+    d.dispatch_time
     
     FROM 
         dispatch d

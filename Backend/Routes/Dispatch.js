@@ -74,13 +74,17 @@
             for (const item of dispatchData) {
                 const { purchase_id, item_id, quantity, location, receiver, incharge, dispatch_date } = item;
                 console.log(item);
+                // Correctly extract the current time value
+                const current_time_result = await db.promise().query('SELECT CURRENT_TIME() as currentTime');
+                const current_time = current_time_result[0][0].currentTime; // Get the time as a string
+
                 console.log("THE PURCHASE ID IS"+purchase_id);
                 // Insert into dispatch table
                 queries.push({
                     sql: `
-                        INSERT INTO dispatch (purchase_id,quantity, location, receiver, incharge, dispatch_date)
-                        VALUES (?,?, ?, ?, ?, ?)`,
-                    values: [purchase_id,quantity, location, receiver, incharge, dispatch_date]
+                        INSERT INTO dispatch (purchase_id,quantity, location, receiver, incharge, dispatch_date,dispatch_time)
+                        VALUES (?,?, ?, ?, ?, ?,?)`,
+                    values: [purchase_id,quantity, location, receiver, incharge, dispatch_date,current_time]
                 });
                 
 
