@@ -145,6 +145,15 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     return Number(number).toFixed(2);
   };
 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
   if (loading) {
     return (
       <div style={{
@@ -171,8 +180,8 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       </PrintHeader>
       <h1>Purchase Report</h1>
       <DateRange>
-        <h2>From: {fromDate}</h2>
-        <h2>To: {toDate}</h2>
+        <h2>From: {formatDate(fromDate)}</h2>
+        <h2>To: {formatDate(toDate)}</h2>
       </DateRange>
       <ItemTable>
         <thead>
