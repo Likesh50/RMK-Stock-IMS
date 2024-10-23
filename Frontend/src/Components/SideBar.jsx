@@ -9,6 +9,8 @@ import add from '../assets/add.png';
 import menu from '../assets/menu.png';
 import order from '../assets/orderitem.png';
 import expiry from "../assets/expiry.png";
+import editdispatch from "../assets/edit-dispatch.png";
+import editpurchase from "../assets/edit-purchase.png";
 import view from '../assets/view.png';
 import dashboard from '../assets/dashboard.png';
 import pen from '../assets/pen.png';
@@ -39,7 +41,7 @@ const SidebarItem = styled.li`
   }
 
   a {
-    font-size: 10px;
+    font-size: 16px;
     text-align: center;
     display: flex;
     justify-content: center;
@@ -100,24 +102,41 @@ const SideBar = () => {
             Add Items
           </Link>
         </SidebarItem>)}
-        {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/updateitem')}>
-          <Link to="./updateitem">
-            <img src={pen} width="50px" height="40px" alt="updateitem" />
-            Update item
-          </Link>
-        </SidebarItem>)}
-        <SidebarItem className={isActive('/dashboard/expiry')}>
-          <Link to="expiry">
-            <img src={expiry} width="40px" height="40px" alt="Reports" />
-            Expiring Items
-          </Link>
-        </SidebarItem>
+
         <SidebarItem className={isActive('/dashboard/ordertoplace')}>
           <Link to="ordertoplace">
             <img src={order} width="40px" height="40px" alt="Reports" />
             Items To Order
           </Link>
         </SidebarItem>
+
+        <SidebarItem className={isActive('/dashboard/expiry')}>
+          <Link to="expiry">
+            <img src={expiry} width="40px" height="40px" alt="Reports" />
+            Expiring Items
+          </Link>
+        </SidebarItem>
+
+        {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/updateitem')}>
+          <Link to="./updateitem">
+            <img src={pen} width="50px" height="40px" alt="updateitem" />
+            Edit item
+          </Link>
+        </SidebarItem>)}
+        
+        <SidebarItem className={isActive('/dashboard/editpurchase')}>
+          <Link to="editpurchase">
+            <img src={editpurchase} width="40px" height="40px" alt="Reports" />
+            Edit Purchase
+          </Link>
+        </SidebarItem>
+        <SidebarItem className={isActive('/dashboard/editdispatch')}>
+          <Link to="editdispatch">
+            <img src={editdispatch} width="40px" height="40px" alt="Reports" />
+            Edit Dispatch
+          </Link>
+        </SidebarItem>
+        
         {role==="Admin" &&  (<SidebarItem className={isActive('/adminsignup')}>
           <Link to="/adminsignup">
             <img src={menu} width="40px" height="40px" alt="Add Event menu" />

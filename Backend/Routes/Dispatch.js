@@ -178,4 +178,41 @@
         }
     });
 
+    router.get('/getDispatches/:date', async (req, res) => {
+        const date = req.params.date;
+      
+        try {
+          const [rows] = await db.promise().query(`
+            SELECT d.*, i.item_name 
+            FROM dispatch d 
+            JOIN purchases p ON d.purchase_id = p.purchase_id 
+            JOIN items i ON p.item_id = i.item_id 
+            WHERE d.dispatch_date = ?`, [date]);
+          res.status(200).json(rows);
+        } catch (error) {
+          console.error('Error fetching dispatches:', error);
+          res.status(500).json({ message: 'Internal server error' });
+        }
+      });
+      
+      router.post('/updateDispatch', async (req, res) => {
+        const { dispatch_id, quantity, location, receiver, incharge } = req.body;
+      
+        if (!dispatch_id || quantity === undefined || !location || !receiver || !incharge) {
+          return res.status(400).json({ message: 'All fields are required' });
+        }
+      
+        try {
+          const updateQuery = `UPDATE dispatch SET quantity = ?, location = ?, receiver = ?, incharge = ? WHERE dispatch_id = ?`;
+          await db.promise().query(updateQuery, [quantity, location, receiver, incharge, dispatch_id]);
+      
+          res.status(200).json({ message: 'Dispatch updated successfully' });
+        } catch (error) {
+          console.error('Error updating dispatch:', error);
+          res.status(500).json({ message: 'Internal server error' });
+        }
+      });
+
+      
+
     module.exports = router;
