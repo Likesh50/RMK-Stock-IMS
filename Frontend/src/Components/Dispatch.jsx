@@ -238,43 +238,46 @@ function Dispatch() {
 
   const handleInputChange = async (id, field, value) => {
     if (field === 'item') {
-        const selectedItem = items.find(item => item.item_id == value);
-        if (selectedItem) {
-            try {
-                const expiryResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/expiry/${selectedItem.item_id}`);
-                const expiryData = expiryResponse.data.map(exp => ({ expiry_date: exp.expiry_date, purchase_id: exp.purchase_id }));
-
-                setExpiryDates(prev => ({ ...prev, [id]: expiryData }));
-
-                setRows(prevRows => prevRows.map(row => (
-                    row.id === id ? { ...row, item: value } : row
-                )));
-            } catch (error) {
-                console.error("Error fetching expiry dates:", error);
-            }
+      const selectedItem = items.find(item => item.item_id == value);
+      if (selectedItem) {
+        try {
+          const expiryResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/expiry/${selectedItem.item_id}`);
+          const expiryData = expiryResponse.data.map(exp => ({ expiry_date: exp.expiry_date, purchase_id: exp.purchase_id }));
+  
+          setExpiryDates(prev => ({ ...prev, [id]: expiryData }));
+  
+          setRows(prevRows => 
+            prevRows.map(row => (row.id === id ? { ...row, item: value, expiry: '', quantity: '', location: '', receiver: '', incharge: '' } : row))
+          );
+        } catch (error) {
+          console.error("Error fetching expiry dates:", error);
         }
+      }
     } else if (field === 'expiry') {
-        const selectedExpiry = expiryDates[id]?.find(exp => exp.expiry_date === value);
-        const purchase_id = selectedExpiry ? selectedExpiry.purchase_id : null;
-
-        if (purchase_id) {
-            try {
-                const stockResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/retrieveStock/${rows.find(r => r.id === id).item}/${purchase_id}`);
-                const stockData = stockResponse.data;
-
-                setItemQuantities(prev => ({ ...prev, [id]: stockData.quantity }));
-
-                setRows(prevRows => prevRows.map(row => (
-                    row.id === id ? { ...row, expiry: value, purchase_id } : row
-                )));
-            } catch (error) {
-                console.error("Error fetching stock data:", error);
-            }
+      const selectedExpiry = expiryDates[id]?.find(exp => exp.expiry_date === value);
+      const purchase_id = selectedExpiry ? selectedExpiry.purchase_id : null;
+  
+      if (purchase_id) {
+        try {
+          const stockResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/retrieveStock/${rows.find(r => r.id === id).item}/${purchase_id}`);
+          const stockData = stockResponse.data;
+  
+          setItemQuantities(prev => ({ ...prev, [id]: stockData.quantity }));
+  
+          setRows(prevRows => 
+            prevRows.map(row => (row.id === id ? { ...row, expiry: value, purchase_id } : row))
+          );
+        } catch (error) {
+          console.error("Error fetching stock data:", error);
         }
+      }
     } else {
-        setRows(prevRows => prevRows.map(row => (row.id === id ? { ...row, [field]: value } : row)));
+      setRows(prevRows => 
+        prevRows.map(row => (row.id === id ? { ...row, [field]: value } : row))
+      );
     }
-};
+  };
+  
 
 
   const handleDeleteRow = (id) => {

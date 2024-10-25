@@ -85,7 +85,7 @@ const ItemsTable = () => {
   return (
     <Container>
       <Title>Items Table</Title>
-      
+      <Button sty onClick={handlePrint}>Print Table</Button>
       {/* Table with print-specific margins */}
       <TableContainer ref={tableRef}>
         <Table>
@@ -113,7 +113,7 @@ const ItemsTable = () => {
       </TableContainer>
       
       {/* Print button */}
-      <Button sty onClick={handlePrint}>Print Table</Button>
+     
     </Container>
   );
 };

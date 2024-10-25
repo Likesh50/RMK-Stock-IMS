@@ -4,7 +4,7 @@ const router = express.Router();
 
 // Fetch all items
 router.get('/', (req, res) => {
-    const query = `SELECT * FROM items`;
+    const query = `SELECT * FROM items order by category,item_name`;
 
     db.query(query, (err, result) => {
         if (err) {

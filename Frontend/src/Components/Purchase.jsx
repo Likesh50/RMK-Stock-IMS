@@ -9,6 +9,7 @@ import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { HashLoader } from 'react-spinners'; 
+import * as XLSX from 'xlsx'; // Import XLSX
 const Container = styled.div`
   h1 {
     color: #164863;
@@ -120,7 +121,20 @@ const ItemTable = styled.table`
     max-width:115px;
   }
 `;
+const ImportButton = styled.button`
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  margin-left: 10px;
 
+  &:hover {
+    background-color: #0056b3;
+  }
+`;
 const SubmitContainer = styled.div`
   margin-top: 20px;
   text-align: center;
@@ -193,7 +207,8 @@ const Purchase = () => {
   const [date, setDate] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-
+  const fileInputRef = useRef(null); 
+  const [invalidItems, setInvalidItems] = useState([]);
   useEffect(() => {
     const fetchItems = async () => {
       try {
@@ -207,7 +222,75 @@ const Purchase = () => {
     };
     fetchItems();
   }, []);
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      const updatedRows = jsonData.map((row) => {
+        // Check if manufacturingDate is a number (Excel date)
+        if (typeof row.manufacturingDate === 'number') {
+          const date = XLSX.SSF.parse_date_code(row.manufacturingDate);
+          const manufacturingDate = dayjs(new Date(date.y, date.m - 1, date.d));
+          
+          return {
+            id: Date.now(), // Replace with unique ID logic
+            item_id: row.item_id,
+            quantity: row.quantity,
+            manufacturingDate: manufacturingDate, // Store as Dayjs object
+            amount: row.amount,
+            expiry: row.expiry,
+            invoice: row.invoice,
+            address: row.address,
+          };
+        } else {
+          console.error(`Invalid manufacturing date for row: ${JSON.stringify(row)}`);
+          return null; // Handle invalid rows if necessary
+        }
+      }).filter(row => row !== null);
+      
+
+      // Send to backend
+      await uploadData(updatedRows);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const uploadData = async (data) => {
+    if (!date) {
+      toast.error("Please enter the date.");
+      return;
+    }
+
+    const formattedDate = date.format('YYYY-MM-DD');
+    
+    try {
+      setLoading(true);
+      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/purchase/addfromexcel`, {
+        arr: data,
+        date: formattedDate,
+      });
+      
+      // Check for invalid items
+      const invalidIds = response.data.invalidIds || []; // Assuming the backend returns this
+      setInvalidItems(invalidIds);
+
+      toast.success("Items uploaded successfully");
+    } catch (error) {
+      console.error("Error uploading data:", error);
+      toast.error("Error uploading data");
+    } finally {
+      setLoading(false);
+    }
+  };
+ 
   const fetchCategoryForItem = (itemName) => {
     const item = items.find(i => i.item_name === itemName);
     return item ? item.category : '';
@@ -348,7 +431,14 @@ const Purchase = () => {
             <HashLoader color="#164863" loading={loading} size={90} />
           </div>
         )}
-
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          style={{ display: 'none' }} // Hide the file input
+        />
+        <ImportButton onClick={() => fileInputRef.current.click()}>Upload from Excel</ImportButton>
+         
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DemoContainer components={['DatePicker']}>
             <DatePicker label="" className="date-picker" shouldDisableDate={(date) => date.isAfter(dayjs())} onChange={(newDate) => setDate(newDate)}
@@ -366,6 +456,17 @@ const Purchase = () => {
         </Records>
         <AddButton onClick={handleAddRows}>Add</AddButton>
       </FormContainer>
+        {/* Display invalid items if any */}
+        {invalidItems.length > 0 && (
+        <div>
+          <h3>Invalid Item IDs:</h3>
+          <ul>
+            {invalidItems.map((id, index) => (
+              <li key={index}>{id}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <ItemTable>
         <thead>
           <tr>
