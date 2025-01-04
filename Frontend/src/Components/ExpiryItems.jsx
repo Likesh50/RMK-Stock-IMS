@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import Axios from 'axios';
 import moment from 'moment';
+import { useReactToPrint } from 'react-to-print';
+
 const Container = styled.div`
   h1 {
     color: #164863;
@@ -55,6 +57,21 @@ const SearchContainer = styled.div`
       transform: scale(0.98);
     }
   }
+
+  .print-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    margin-left: 10px;
+
+    &:hover {
+      background-color: #0056b3;
+    }
+  }
 `;
 
 const TableHeader = styled.table`
@@ -90,29 +107,32 @@ function ExpiryItems() {
   const [curr, setCurr] = useState([]);
   const [filteredCurr, setFilteredCurr] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [days, setDays] = useState(30); // Default to 30 days
+  const [days, setDays] = useState(30);
+  const tableRef = useRef();
+
+  const handlePrint = useReactToPrint({
+    content: () => tableRef.current,
+  });
 
   useEffect(() => {
     fetchExpiryItems();
   }, []);
-  
+
   const fetchExpiryItems = () => {
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/expiry/expiry-items`, {
-      params: { days } // Send the number of days as a query parameter
+      params: { days },
     })
-      .then(res => {
-        const data = res.data.map(stock => ({
+      .then((res) => {
+        const data = res.data.map((stock) => ({
           ...stock,
           daysLeftToExpire: calculateDaysLeft(stock.expiryDate),
           daysSincePurchase: calculateDaysSince(stock.manufacturingDate),
         }));
-        setCurr(data); 
+        setCurr(data);
         setFilteredCurr(data);
-        console.log(data);
       })
-      .catch(err => console.error("Error fetching expiry items:", err));
+      .catch((err) => console.error('Error fetching expiry items:', err));
   };
-  
 
   const calculateDaysLeft = (expiryDate) => {
     const today = moment();
@@ -129,10 +149,11 @@ function ExpiryItems() {
   const handleSearch = (e) => {
     const searchValue = e.target.value;
     setSearchTerm(searchValue);
-    const filteredData = curr.filter(item =>
-      item.itemName.toLowerCase().includes(searchValue.toLowerCase()) || item.category.toLowerCase().includes(searchValue.toLowerCase())
+    const filteredData = curr.filter(
+      (item) =>
+        item.itemName.toLowerCase().includes(searchValue.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchValue.toLowerCase())
     );
-    
     setFilteredCurr(filteredData);
   };
 
@@ -149,51 +170,59 @@ function ExpiryItems() {
           className="search-input"
           placeholder="Enter item name / Category name"
           value={searchTerm}
-          onChange={handleSearch} 
+          onChange={handleSearch}
         />
         <input
           type="number"
           className="search-input"
           placeholder="Days"
           value={days}
-          onChange={e => setDays(e.target.value)}  // Update the number of days
+          onChange={(e) => setDays(e.target.value)}
         />
-        <button className="search-button" onClick={() => fetchExpiryItems()}>Search</button>
+        <button className="search-button" onClick={() => fetchExpiryItems()}>
+          Search
+        </button>
+        <button className="print-button" onClick={handlePrint}>
+          Print Table
+        </button>
       </SearchContainer>
 
-      <TableHeader>
-        <thead>
-          <tr>
-            <th>ITEM</th>
-            <th>CATEGORY</th>
-            <th>QUANTITY</th>
-            
-            <th>DAYS SINCE PURCHASE</th>
-            <th>DAYS LEFT TO EXPIRE</th>
-            <th>EXPIRY DATE</th>
-            
-          </tr>
-        </thead>
-        <tbody>
-        {filteredCurr.length > 0 ? filteredCurr.map((item, index) => (
-            <tr key={index}>
-            <td>{item.itemName}</td>
-            <td>{item.category}</td>
-            <td>{formatNumber(item.quantity)+" "+item.unit}</td>
-            
-            <td>{item.daysSincePurchase}</td>
-            <td>{item.daysLeftToExpire >= 0 ? item.daysLeftToExpire : 'Expired'}</td>
-            <td>{moment(item.expiryDate).format('DD-MM-YYYY')}</td>
-            
-            </tr>
-        )) : (
+      <div ref={tableRef}>
+        <TableHeader>
+          <thead>
             <tr>
-            <td colSpan="6">No data available</td>
+              <th>ITEM</th>
+              <th>CATEGORY</th>
+              <th>QUANTITY</th>
+              <th>DAYS SINCE PURCHASE</th>
+              <th>DAYS LEFT TO EXPIRE</th>
+              <th>EXPIRY DATE</th>
             </tr>
-        )}
-        </tbody>
-
-      </TableHeader>
+          </thead>
+          <tbody>
+            {filteredCurr.length > 0 ? (
+              filteredCurr.map((item, index) => (
+                <tr key={index}>
+                  <td>{item.itemName}</td>
+                  <td>{item.category}</td>
+                  <td>{`${formatNumber(item.quantity)} ${item.unit}`}</td>
+                  <td>{item.daysSincePurchase}</td>
+                  <td>
+                    {item.daysLeftToExpire >= 0
+                      ? item.daysLeftToExpire
+                      : 'Expired'}
+                  </td>
+                  <td>{moment(item.expiryDate).format('DD-MM-YYYY')}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="6">No data available</td>
+              </tr>
+            )}
+          </tbody>
+        </TableHeader>
+      </div>
     </Container>
   );
 }

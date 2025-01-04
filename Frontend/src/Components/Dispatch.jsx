@@ -197,11 +197,14 @@ const DeleteButton = styled.button`
     cursor: not-allowed;
   }
 `;
+
 function Dispatch() {
   const [rows, setRows] = useState([{ id: Date.now(), item: '', quantity: '', location: '', receiver: '', incharge: '', expiry: '' }]);
   const [items, setItems] = useState([]);
-  const [expiryDates, setExpiryDates] = useState({});  // Now it's an object to hold expiry dates per row
+  const [expiryDates, setExpiryDates] = useState({});  // Object to hold expiry dates per row
   const [itemQuantities, setItemQuantities] = useState({}); // Same for item quantities per row
+  const [file, setFile] = useState(null);  // State to hold the uploaded file
+  const [status, setStatus] = useState('');
   const numRecordsRef = useRef(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -218,6 +221,36 @@ function Dispatch() {
     fetchData();
   }, []);
 
+  // Handle file selection
+  const onFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
+
+  // Upload the selected file
+  const onFileUpload = async () => {
+    if (!file) {
+      alert("Please choose a file first.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/expiry/dispatch-upload`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      console.log(response.data);
+      setStatus(`File uploaded successfully: ${response.data}`);
+    } catch (error) {
+      console.error("Error uploading file:", error.response || error);
+      setStatus(`Error uploading file: ${error.response ? error.response.data : error.message}`);
+    }
+  };
+
+  // Add new rows dynamically
   const handleAddRows = () => {
     const numberOfRows = parseInt(numRecordsRef.current.value, 10);
     if (numberOfRows > 0) {
@@ -236,6 +269,7 @@ function Dispatch() {
     }
   };
 
+  // Handle input changes for each row
   const handleInputChange = async (id, field, value) => {
     if (field === 'item') {
       const selectedItem = items.find(item => item.item_id == value);
@@ -243,9 +277,9 @@ function Dispatch() {
         try {
           const expiryResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/expiry/${selectedItem.item_id}`);
           const expiryData = expiryResponse.data.map(exp => ({ expiry_date: exp.expiry_date, purchase_id: exp.purchase_id }));
-  
+
           setExpiryDates(prev => ({ ...prev, [id]: expiryData }));
-  
+
           setRows(prevRows => 
             prevRows.map(row => (row.id === id ? { ...row, item: value, expiry: '', quantity: '', location: '', receiver: '', incharge: '' } : row))
           );
@@ -256,14 +290,14 @@ function Dispatch() {
     } else if (field === 'expiry') {
       const selectedExpiry = expiryDates[id]?.find(exp => exp.expiry_date === value);
       const purchase_id = selectedExpiry ? selectedExpiry.purchase_id : null;
-  
+
       if (purchase_id) {
         try {
           const stockResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/retrieveStock/${rows.find(r => r.id === id).item}/${purchase_id}`);
           const stockData = stockResponse.data;
-  
+
           setItemQuantities(prev => ({ ...prev, [id]: stockData.quantity }));
-  
+
           setRows(prevRows => 
             prevRows.map(row => (row.id === id ? { ...row, expiry: value, purchase_id } : row))
           );
@@ -277,13 +311,13 @@ function Dispatch() {
       );
     }
   };
-  
 
-
+  // Handle row deletion
   const handleDeleteRow = (id) => {
     setRows(prevRows => prevRows.filter(row => row.id !== id));
   };
 
+  // Submit dispatch details
   const handleSubmit = async () => {
     const arr = rows.map(row => ({
       purchase_id: row.purchase_id,
@@ -312,6 +346,26 @@ function Dispatch() {
 
   return (
     <Container>
+    <div style={{ margin: '30px auto', padding: '20px', textAlign: 'center', maxWidth: '600px', width: '80%', backgroundColor: '#f9f9f9', borderRadius: '8px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)' }}>
+  <h2 style={{ color: '#164863', fontSize: '24px', marginBottom: '15px' }}>Upload Excel File</h2>
+  <input 
+    type="file" 
+    accept=".xlsx,.xls" 
+    onChange={onFileChange} 
+    style={{ padding: '8px', fontSize: '14px', border: '1px solid #ccc', borderRadius: '4px', width: '80%', marginBottom: '15px', display: 'block', marginLeft: 'auto', marginRight: 'auto' }} 
+  />
+  <button 
+    onClick={onFileUpload} 
+    style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#4caf50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.3s, transform 0.2s' }}>
+    Upload
+  </button>
+  <div style={{ color: '#ff4d4d', marginTop: '15px', fontSize: '14px' }}>
+    {status}
+  </div>
+</div>
+
+
+      {/* Loading Spinner */}
       {loading && (
         <div style={{
           position: 'fixed',
@@ -327,16 +381,30 @@ function Dispatch() {
           <HashLoader color="#164863" loading={loading} size={90} />
         </div>
       )}
+
+      {/* Dispatch Form Section */}
       <h1>DISPATCH</h1>
       <FormContainer>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DatePicker label="Select date" value={selectedDate} onChange={setSelectedDate} shouldDisableDate={(date) => date.isAfter(dayjs())}/>
+          <DatePicker
+            label="Select date"
+            value={selectedDate}
+            onChange={setSelectedDate}
+            shouldDisableDate={(date) => date.isAfter(dayjs())}
+          />
         </LocalizationProvider>
+
         <Records>
-          <InputNumber type='number' placeholder='No of rows to be added' ref={numRecordsRef} />
+          <InputNumber
+            type="number"
+            placeholder="No of rows to be added"
+            ref={numRecordsRef}
+          />
         </Records>
         <AddButton onClick={handleAddRows}>Add</AddButton>
       </FormContainer>
+
+      {/* Item Table */}
       <ItemTable>
         <thead>
           <tr>
@@ -412,12 +480,14 @@ function Dispatch() {
         </tbody>
       </ItemTable>
 
+      {/* Submit Section */}
       <SubmitContainer>
         <SubmitButton onClick={handleSubmit}>Submit Dispatch</SubmitButton>
       </SubmitContainer>
+
       <ToastContainer />
     </Container>
   );
-}
+};
 
 export default Dispatch;

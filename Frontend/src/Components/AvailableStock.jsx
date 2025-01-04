@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import Axios from 'axios';
 import moment from 'moment';
+import { useReactToPrint } from 'react-to-print';
+
 const Container = styled.div`
   h1 {
     color: #164863;
@@ -63,26 +65,62 @@ const TableHeader = styled.table`
   margin-top: 30px;
   font-family: Arial, sans-serif;
 
+  th,
+  td {
+    padding:10px; /* Consistent padding */
+    border: 1px solid #ddd;
+    text-align: center;
+    font-size: 16px;
+  }
+
   th {
     background-color: #164863;
     color: white;
     font-size: 16px;
     font-weight: bold;
-    padding: 10px;
-    border: 1px solid #ddd;
-    text-align: center;
-    width: 200px;
-  }
-
-  td {
-    padding: 10px;
-    border: 1px solid #ddd;
-    text-align: center;
-    font-size: 16px;
   }
 
   tbody tr:nth-child(even) {
     background-color: #f4f4f4;
+  }
+
+  
+  @media print {
+    th,
+    td {
+      padding: 10px; /* Ensure 10px padding on both sides */
+      margin: 0; /* Remove any margins */
+    }
+    /* Add additional padding for print if needed */
+    table {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+  }
+`;
+
+const PrintButtonContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+
+  .print-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    background-color: #4caf50;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+
+    &:hover {
+      background-color: #45a049;
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
   }
 `;
 
@@ -90,20 +128,20 @@ function AvailableStock() {
   const [curr, setCurr] = useState([]);
   const [filteredCurr, setFilteredCurr] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const tableRef = useRef();
 
   useEffect(() => {
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/stocks/availablestock`)
-      .then(res => {
-        const data = res.data.data.map(stock => ({
+      .then((res) => {
+        const data = res.data.data.map((stock) => ({
           ...stock,
           daysLeftToExpire: calculateDaysLeft(stock.expiry_date),
           daysSincePurchase: calculateDaysSince(stock.purchase_date),
         }));
-        setCurr(data); 
-        setFilteredCurr(data); 
-        console.log(data);
+        setCurr(data);
+        setFilteredCurr(data);
       })
-      .catch(err => console.error("Error fetching stock data:", err));
+      .catch((err) => console.error('Error fetching stock data:', err));
   }, []);
 
   const calculateDaysLeft = (expiryDate) => {
@@ -121,16 +159,21 @@ function AvailableStock() {
   const handleSearch = (e) => {
     const searchValue = e.target.value;
     setSearchTerm(searchValue);
-    const filteredData = curr.filter(item =>
-      item.itemName.toLowerCase().includes(searchValue.toLowerCase()) || item.category.toLowerCase().includes(searchValue.toLowerCase())
+    const filteredData = curr.filter(
+      (item) =>
+        item.itemName.toLowerCase().includes(searchValue.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchValue.toLowerCase())
     );
-    
     setFilteredCurr(filteredData);
   };
 
   const formatNumber = (number) => {
     return Number(number).toFixed(2);
   };
+
+  const handlePrint = useReactToPrint({
+    content: () => tableRef.current,
+  });
 
   return (
     <Container>
@@ -141,11 +184,16 @@ function AvailableStock() {
           className="search-input"
           placeholder="Enter item name / Category name"
           value={searchTerm}
-          onChange={handleSearch} 
+          onChange={handleSearch}
         />
-        <button className="search-button" onClick={() => handleSearch({ target: { value: searchTerm } })}>Search</button>
+        <button className="search-button">Search</button>
       </SearchContainer>
-      <TableHeader>
+      <PrintButtonContainer>
+        <button className="print-button" onClick={handlePrint}>
+          Print
+        </button>
+      </PrintButtonContainer>
+      <TableHeader ref={tableRef}>
         <thead>
           <tr>
             <th>ITEM</th>
@@ -157,16 +205,18 @@ function AvailableStock() {
           </tr>
         </thead>
         <tbody>
-          {filteredCurr.length > 0 ? filteredCurr.map((item, index) => (
-            <tr key={index}>
-              <td>{item.itemName}</td>
-              <td>{item.category}</td>
-              <td>{formatNumber(item.quantity)+" "+item.unit}</td>
-              <td>{moment(item.expiry_date).format('DD-MM-YYYY')}</td>
-              <td>{item.daysLeftToExpire >= 0 ? item.daysLeftToExpire : 'Expired'}</td>
-              <td>{item.daysSincePurchase}</td>
-            </tr>
-          )) : (
+          {filteredCurr.length > 0 ? (
+            filteredCurr.map((item, index) => (
+              <tr key={index}>
+                <td>{item.itemName}</td>
+                <td>{item.category}</td>
+                <td>{formatNumber(item.quantity) + ' ' + item.unit}</td>
+                <td>{moment(item.expiry_date).format('DD-MM-YYYY')}</td>
+                <td>{item.daysLeftToExpire >= 0 ? item.daysLeftToExpire : 'Expired'}</td>
+                <td>{item.daysSincePurchase}</td>
+              </tr>
+            ))
+          ) : (
             <tr>
               <td colSpan="6">No data available</td>
             </tr>

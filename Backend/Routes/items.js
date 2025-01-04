@@ -1,10 +1,10 @@
 const express = require('express');
-const db = require('../db'); // Assuming you have a DB connection module
+const db = require('../db'); // Ensure this is a correctly configured DB module
 const router = express.Router();
 
 // Fetch all items
 router.get('/', (req, res) => {
-    const query = `SELECT * FROM items order by category,item_name`;
+    const query = `SELECT * FROM items ORDER BY category, item_name`;
 
     db.query(query, (err, result) => {
         if (err) {
@@ -36,10 +36,14 @@ router.get('/:id', (req, res) => {
     });
 });
 
-// Update an item (already provided)
+// Update an item
 router.put('/:id', (req, res) => {
     const { id } = req.params;
     const { item_name, unit, category, min_quantity } = req.body;
+
+    if (!item_name || !unit || !category || !min_quantity) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
 
     const query = `
         UPDATE items 
@@ -62,7 +66,7 @@ router.put('/:id', (req, res) => {
     });
 });
 
-// Delete an item (already provided)
+// Delete an item
 router.delete('/:id', (req, res) => {
     const { id } = req.params;
 
@@ -81,5 +85,6 @@ router.delete('/:id', (req, res) => {
         res.json({ message: `Item with ID ${id} deleted successfully` });
     });
 });
+
 
 module.exports = router;

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Added useRef
+import { useReactToPrint } from 'react-to-print'; // Importing useReactToPrint
 import styled from 'styled-components';
 import Axios from 'axios';
 import moment from 'moment';
+
 const Container = styled.div`
   h1 {
     color: #164863;
@@ -55,6 +57,26 @@ const SearchContainer = styled.div`
       transform: scale(0.98);
     }
   }
+
+  .print-button {
+    margin-left: 10px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    background-color: #2196f3;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+
+    &:hover {
+      background-color: #1e88e5;
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
 `;
 
 const TableHeader = styled.table`
@@ -90,6 +112,11 @@ function OrderToPlace() {
   const [curr, setCurr] = useState([]);
   const [filteredCurr, setFilteredCurr] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const tableRef = useRef(); // Ref for the table
+
+  const handlePrint = useReactToPrint({
+    content: () => tableRef.current,
+  });
 
   useEffect(() => {
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/minquant/minquant`)
@@ -103,18 +130,6 @@ function OrderToPlace() {
   }, []);
   
 
-  const calculateDaysLeft = (expiryDate) => {
-    const today = moment();
-    const expiry = moment(expiryDate);
-    return expiry.diff(today, 'days');
-  };
-
-  const calculateDaysSince = (purchaseDate) => {
-    const today = moment();
-    const purchase = moment(purchaseDate);
-    return today.diff(purchase, 'days');
-  };
-
   const handleSearch = (e) => {
     const searchValue = e.target.value;
     setSearchTerm(searchValue);
@@ -125,10 +140,6 @@ function OrderToPlace() {
     setFilteredCurr(filteredData);
   };
   
-
-  const formatNumber = (number) => {
-    return Number(number).toFixed(2);
-  };
 
   return (
     <Container>
@@ -142,32 +153,31 @@ function OrderToPlace() {
           onChange={handleSearch} 
         />
         <button className="search-button" onClick={() => handleSearch({ target: { value: searchTerm } })}>Search</button>
+        <button className="print-button" onClick={handlePrint}>Print</button> {/* Print Button */}
       </SearchContainer>
-      <TableHeader>
-      <thead>
-        <tr>
+      <TableHeader ref={tableRef}> {/* Attached the ref */}
+        <thead>
+          <tr>
             <th>ITEM NAME</th>
             <th>CATEGORY</th>
             <th>MINIMUM QUANTITY</th>
             <th>AVAILABLE QUANTITY</th>
-        </tr>
+          </tr>
         </thead>
-
         <tbody>
-        {filteredCurr.length > 0 ? filteredCurr.map((item, index) => (
+          {filteredCurr.length > 0 ? filteredCurr.map((item, index) => (
             <tr key={index}>
-            <td>{item.item_name}</td>
-            <td>{item.category}</td>
-            <td>{item.min_quantity+" "+item.unit}</td>
-            <td>{item.total_quantity+" "+item.unit}</td>
+              <td>{item.item_name}</td>
+              <td>{item.category}</td>
+              <td>{item.min_quantity + " " + item.unit}</td>
+              <td>{item.total_quantity + " " + item.unit}</td>
             </tr>
-        )) : (
+          )) : (
             <tr>
-            <td colSpan="5">No data available</td>
+              <td colSpan="4">No data available</td>
             </tr>
-        )}
+          )}
         </tbody>
-
       </TableHeader>
     </Container>
   );

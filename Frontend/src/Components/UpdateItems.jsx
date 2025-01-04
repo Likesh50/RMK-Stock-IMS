@@ -68,7 +68,7 @@ const Label = styled.label`
   font-weight: bold;
 `;
 
-const UpdateItems = () => {
+const ItemManagement = () => {
   const [items, setItems] = useState([]); // State to store all items for the dropdown
   const [categories, setCategories] = useState([]); // State to store categories
   const [itemData, setItemData] = useState({
@@ -78,7 +78,7 @@ const UpdateItems = () => {
     min_quantity: 0,
   });
   const [selectedItemId, setSelectedItemId] = useState(''); // State to track selected item ID
-  const [successMessage, setSuccessMessage] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     // Fetch all items for the dropdown when the component mounts
@@ -105,7 +105,7 @@ const UpdateItems = () => {
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/getcategory`)
       .then(res => {
         setCategories(res.data); 
-        console.log(res.data)// Assuming the API returns an array of categories
+        console.log(res.data); // Assuming the API returns an array of categories
       })
       .catch(err => console.error('Error fetching categories:', err));
   }, []);
@@ -119,20 +119,45 @@ const UpdateItems = () => {
 
   const handleUpdateItem = e => {
     e.preventDefault();
-
     Axios.put(`${import.meta.env.VITE_RMK_MESS_URL}/items/${selectedItemId}`, itemData)
       .then(res => {
         toast.success('Item updated successfully!');
+        setMessage('Item updated successfully');
       })
       .catch(err => {
         console.error('Error updating item:', err);
         toast.error('Error updating item.');
+        setMessage('Error updating item');
       });
+  };
+
+  const handleDeleteItem = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/delete-item/${selectedItemId}`, {
+        method: 'DELETE', // HTTP method to delete
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setMessage('Item deleted successfully');
+        toast.success('Item deleted successfully');
+      } else {
+        const errorMessage = await response.text();
+        setMessage(errorMessage);
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      setMessage('Error deleting item');
+      toast.error('Error deleting item');
+    }
   };
 
   return (
     <Container>
-      <h1>Update or Delete Item</h1>
+      <h1>Manage Item</h1>
 
       {/* Dropdown to select an item */}
       <Label htmlFor="item_select">Select Item:</Label>
@@ -174,13 +199,12 @@ const UpdateItems = () => {
             onChange={handleInputChange}
           >
             <option value="">Select a category</option>
-            {categories.map((category,idx) => (
+            {categories.map((category, idx) => (
               <option key={idx} value={category.category}>
                 {category.category}
               </option>
             ))}
           </Select>
-
 
           <Label>Minimum Quantity:</Label>
           <Input
@@ -192,14 +216,21 @@ const UpdateItems = () => {
 
           {/* Update Button */}
           <Button type="submit">Update Item</Button>
-
-          {/* Success message */}
-          {successMessage && <p>{successMessage}</p>}
         </Form>
       )}
+
+      {selectedItemId && (
+        <Button delete onClick={handleDeleteItem}>
+          Delete Item
+        </Button>
+      )}
+
+      {/* Message Display */}
+      {message && <p>{message}</p>}
+
       <ToastContainer />
     </Container>
   );
 };
 
-export default UpdateItems;
+export default ItemManagement;

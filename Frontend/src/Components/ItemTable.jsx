@@ -21,12 +21,10 @@ const Title = styled.h1`
 const TableContainer = styled.div`
   margin: 20px;
   padding: 20px;
-  
-  /* Print-specific styles */
+
   @media print {
     margin: 40px;
     padding: 20px;
-    /* You can add more print-specific styles here */
   }
 `;
 
@@ -64,29 +62,90 @@ const Button = styled.button`
   }
 `;
 
-const ItemsTable = () => {
+const ItemsTableWithFilter = () => {
   const [items, setItems] = useState([]);
-  const tableRef = useRef(); // Create a ref for the table
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [category, setCategory] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const tableRef = useRef();
 
   useEffect(() => {
-    // Fetch the items from the backend
+    // Fetch all items on component mount
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/items`)
       .then((res) => {
         setItems(res.data);
+        setFilteredItems(res.data); // Default to show all items
       })
-      .catch((err) => console.error('Error fetching items:', err));
+      .catch((err) => {
+        console.error('Error fetching items:', err);
+        setError('Error fetching items');
+      });
   }, []);
 
-  // useReactToPrint to handle printing
   const handlePrint = useReactToPrint({
-    content: () => tableRef.current, // Reference the table component
+    content: () => tableRef.current,
   });
+
+  const handleFilter = async () => {
+    if (!category.trim()) {
+      setError('Category is required');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/expiry/filter-category`, {
+        params: { category }, // Pass category as query parameter
+      });
+
+      if (response.data && response.data.length > 0) {
+        setFilteredItems(response.data);
+      } else {
+        setFilteredItems([]); // If no items found for category
+        setError('No items found for the given category');
+      }
+    } catch (err) {
+      console.error('Error filtering items:', err);
+      setError(
+        err.response?.data?.error || 'An error occurred while filtering items.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setFilteredItems(items); // Reset to show all items
+    setCategory('');
+    setError('');
+  };
 
   return (
     <Container>
       <Title>Items Table</Title>
-      <Button sty onClick={handlePrint}>Print Table</Button>
-      {/* Table with print-specific margins */}
+
+      {/* Filter Section */}
+      <div style={{ marginBottom: '1rem' }}>
+        <input
+          type="text"
+          placeholder="Enter category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          style={{ padding: '0.5rem', marginRight: '0.5rem' }}
+        />
+        <Button onClick={handleFilter}>Filter</Button>
+        <Button onClick={handleReset} style={{ marginLeft: '10px' }}>
+          Reset Filter
+        </Button>
+      </div>
+
+      {loading && <p>Loading...</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      {/* Table Section */}
       <TableContainer ref={tableRef}>
         <Table>
           <thead>
@@ -99,23 +158,31 @@ const ItemsTable = () => {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr key={item.item_id}>
-                <Td>{item.item_id}</Td>
-                <Td>{item.item_name}</Td>
-                <Td>{item.unit}</Td>
-                <Td>{item.category}</Td>
-                <Td>{item.min_quantity}</Td>
+            {filteredItems.length > 0 ? (
+              filteredItems.map((item) => (
+                <tr key={item.item_id}>
+                  <Td>{item.item_id}</Td>
+                  <Td>{item.item_name}</Td>
+                  <Td>{item.unit}</Td>
+                  <Td>{item.category}</Td>
+                  <Td>{item.min_quantity}</Td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <Td colSpan="5" style={{ textAlign: 'center' }}>
+                  No items found.
+                </Td>
               </tr>
-            ))}
+            )}
           </tbody>
         </Table>
       </TableContainer>
-      
-      {/* Print button */}
-     
+
+      {/* Print Button */}
+      <Button onClick={handlePrint}>Print Table</Button>
     </Container>
   );
 };
 
-export default ItemsTable;
+export default ItemsTableWithFilter;

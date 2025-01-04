@@ -125,6 +125,8 @@ const AddItems = () => {
   const [items, setItems] = useState([]);
   const [itemsAvail, setItemsAvail] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
+  const [file, setFile] = useState(null);  // Added file state
+  const [message, setMessage] = useState(""); // Added message state
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -195,7 +197,7 @@ const AddItems = () => {
     try {
       const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/insert`, { itemName, category: finalCategory, unit, minimum });
       toast.success("Item added successfully");
-      
+
       setItemName("");
       setCategory("");
       setUnit("");
@@ -207,8 +209,45 @@ const AddItems = () => {
     }
   };
 
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setMessage("Please select a file to upload.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_RMK_MESS_URL}/addItems/upload`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      setMessage(response.data);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setMessage("Failed to upload file. Please try again.");
+    }
+  };
+
   return (
     <Container>
+      <div style={{ margin: "20px" }}>
+        <h2>Upload Excel File</h2>
+        <input type="file" accept=".xlsx, .xls" onChange={handleFileChange} />
+        <SubmitButton onClick={handleUpload} style={{ marginLeft: "10px" }}>
+          Upload
+        </SubmitButton>
+        {message && <p>{message}</p>}
+      </div>
+
       <Heading>Add Items</Heading>
       <Table>
         <thead>
