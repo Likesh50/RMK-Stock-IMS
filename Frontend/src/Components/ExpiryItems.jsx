@@ -17,6 +17,7 @@ const SearchContainer = styled.div`
   justify-content: center;
   margin: 20px 0;
 
+
   .search-input {
     padding: 10px;
     border: 1px solid #164863;
@@ -37,6 +38,8 @@ const SearchContainer = styled.div`
       border-color: #4caf50;
       box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
     }
+      @media print{
+      }
   }
 
   .search-button {
@@ -186,7 +189,7 @@ function ExpiryItems() {
           Print Table
         </button>
       </SearchContainer>
-
+      
       <div ref={tableRef}>
         <TableHeader>
           <thead>

@@ -62,106 +62,108 @@ const Button = styled.button`
   }
 `;
 
-const ItemsTableWithFilter = () => {
+const App = () => {
   const [items, setItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
-  const [category, setCategory] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const tableRef = useRef();
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const tableRef = useRef(null); // Define the tableRef
 
+  // Fetch all items and categories when component mounts
   useEffect(() => {
-    // Fetch all items on component mount
-    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/items`)
-      .then((res) => {
-        setItems(res.data);
-        setFilteredItems(res.data); // Default to show all items
+    // Fetch all items
+    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/items/`)
+      .then((response) => {
+        setItems(response.data);
       })
-      .catch((err) => {
-        console.error('Error fetching items:', err);
-        setError('Error fetching items');
+      .catch((error) => {
+        console.error('Error fetching items:', error);
+      });
+
+    // Fetch categories for the dropdown
+    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/items/categories`)
+      .then((response) => {
+        setCategories(response.data);
+      })
+      .catch((error) => {
+        console.error('Error fetching categories:', error);
       });
   }, []);
+
+  // Fetch items filtered by the selected category
+  const handleCategoryChange = (event) => {
+    const category = event.target.value;
+    setSelectedCategory(category);
+
+    // If no category is selected, fetch all items
+    if (category === '') {
+      Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/items/`)
+        .then((response) => {
+          setItems(response.data);
+        })
+        .catch((error) => {
+          console.error('Error fetching all items:', error);
+        });
+    } else {
+      // Fetch items filtered by category
+      Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/items/filter-catg?category=${category}`)
+        .then((response) => {
+          setItems(response.data);
+        })
+        .catch((error) => {
+          console.error('Error fetching filtered items:', error);
+        });
+    }
+  };
 
   const handlePrint = useReactToPrint({
     content: () => tableRef.current,
   });
-
-  const handleFilter = async () => {
-    if (!category.trim()) {
-      setError('Category is required');
-      return;
-    }
-
-    setError('');
-    setLoading(true);
-
-    try {
-      const response = await Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/expiry/filter-category`, {
-        params: { category }, // Pass category as query parameter
-      });
-
-      if (response.data && response.data.length > 0) {
-        setFilteredItems(response.data);
-      } else {
-        setFilteredItems([]); // If no items found for category
-        setError('No items found for the given category');
-      }
-    } catch (err) {
-      console.error('Error filtering items:', err);
-      setError(
-        err.response?.data?.error || 'An error occurred while filtering items.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReset = () => {
-    setFilteredItems(items); // Reset to show all items
-    setCategory('');
-    setError('');
-  };
 
   return (
     <Container>
       <Title>Items Table</Title>
 
       {/* Filter Section */}
-      <div style={{ marginBottom: '1rem' }}>
-        <input
-          type="text"
-          placeholder="Enter category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          style={{ padding: '0.5rem', marginRight: '0.5rem' }}
-        />
-        <Button onClick={handleFilter}>Filter</Button>
-        <Button onClick={handleReset} style={{ marginLeft: '10px' }}>
-          Reset Filter
-        </Button>
-      </div>
+      <div style={{ marginBottom: '1rem', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '5px', border: '1px solid #ddd' }}>
+  <label htmlFor="category" style={{ marginRight: '10px', fontWeight: 'bold' }}>Filter by Category: </label>
+  <select
+    id="category"
+    value={selectedCategory}
+    onChange={handleCategoryChange}
+    style={{
+      padding: '8px',
+      borderRadius: '4px',
+      border: '1px solid #ccc',
+      fontSize: '16px',
+      cursor: 'pointer',
+      width: '200px'
+    }}
+  >
+    <option value="">Select Category</option>
+    {categories.map((category, index) => (
+      <option key={index} value={category}>
+        {category}
+      </option>
+    ))}
+  </select>
+</div>
 
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {/* Table Section */}
+      {/* Display the item table */}
       <TableContainer ref={tableRef}>
         <Table>
           <thead>
             <tr>
-              <Th>Item ID</Th>
               <Th>Item Name</Th>
               <Th>Unit</Th>
               <Th>Category</Th>
-              <Th>Minimum Quantity</Th>
+              <Th>Min Quantity</Th>
             </tr>
           </thead>
           <tbody>
-            {filteredItems.length > 0 ? (
-              filteredItems.map((item) => (
+            {items.length > 0 ? (
+              items.map((item) => (
                 <tr key={item.item_id}>
-                  <Td>{item.item_id}</Td>
                   <Td>{item.item_name}</Td>
                   <Td>{item.unit}</Td>
                   <Td>{item.category}</Td>
@@ -170,9 +172,7 @@ const ItemsTableWithFilter = () => {
               ))
             ) : (
               <tr>
-                <Td colSpan="5" style={{ textAlign: 'center' }}>
-                  No items found.
-                </Td>
+                <Td colSpan="4">No items found</Td>
               </tr>
             )}
           </tbody>
@@ -185,4 +185,4 @@ const ItemsTableWithFilter = () => {
   );
 };
 
-export default ItemsTableWithFilter;
+export default App;
