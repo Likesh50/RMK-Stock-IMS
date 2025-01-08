@@ -16,6 +16,41 @@ router.get('/', (req, res) => {
     });
 });
 
+
+// Route to fetch distinct categories
+router.get('/categories', (req, res) => {
+    const query = 'SELECT DISTINCT category FROM items';
+    db.query(query, (err, results) => {
+      if (err) {
+        console.error('Error fetching categories: ', err);
+        res.status(500).json({ error: 'Failed to fetch categories' });
+      } else {
+        res.json(results.map(row => row.category)); // Return only categories
+      }
+    });
+  });
+
+  // Route to fetch items filtered by category
+router.get('/filter-catg', (req, res) => {
+  const { category } = req.query; // Get category from query parameter
+
+  // Make sure the category is valid
+  if (!category) {
+    return res.status(400).json({ error: 'Category is required' });
+  }
+
+  const query = 'SELECT * FROM items WHERE category = ?';
+
+  db.query(query, [category], (err, results) => {
+    if (err) {
+      console.error('Error fetching filtered items: ', err);
+      return res.status(500).json({ error: 'Failed to fetch items' });
+    }
+
+    res.json(results); // Return the filtered items
+  });
+});
+
 // Fetch a single item by ID
 router.get('/:id', (req, res) => {
     const { id } = req.params;
@@ -85,6 +120,12 @@ router.delete('/:id', (req, res) => {
         res.json({ message: `Item with ID ${id} deleted successfully` });
     });
 });
+
+
+
+
+ 
+  
 
 
 module.exports = router;
