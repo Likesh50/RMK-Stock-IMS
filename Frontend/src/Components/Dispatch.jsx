@@ -5,8 +5,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import styled from 'styled-components';
 import axios from 'axios';
-
-
+import { Autocomplete, TextField } from '@mui/material';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import dayjs from 'dayjs';
@@ -198,25 +197,70 @@ const DeleteButton = styled.button`
   }
 `;
 function Dispatch() {
-  const [rows, setRows] = useState([{ id: Date.now(), item: '', quantity: '', location: '', receiver: '', incharge: '', expiry: '' }]);
-  const [items, setItems] = useState([]);
-  const [expiryDates, setExpiryDates] = useState({});  // Now it's an object to hold expiry dates per row
-  const [itemQuantities, setItemQuantities] = useState({}); // Same for item quantities per row
+  const [rows, setRows] = useState([{
+    id: Date.now(),
+    category: '',
+    item: '',
+    quantity: '',
+    location: '',
+    receiver: '',
+    incharge: '',
+  }]);
+  const [itemsByRowId, setItemsByRowId] = useState({});
+
+  const [availableStock, setAvailableStock] = useState({});
   const numRecordsRef = useRef(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [subcategories, setSubcategories] = useState([]);
+  const [items, setItems] = useState([]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchSubcategories = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/items`);
-        setItems(response.data);
+        const response = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/purchase/subcategories`);
+        const subs = Array.from(new Set(
+          response.data
+            .map(item => item.sub_category)
+            .filter(s => s && s.trim() !== '')
+        ));
+        setSubcategories(subs);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching subcategories:", error);
       }
     };
-    fetchData();
+    fetchSubcategories();
   }, []);
+
+  const fetchItemsForSubcategory = async (subcategory, rowId) => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/purchase/getItemsBySubcategory`, {
+      params: { subcategory }
+    });
+
+    setItemsByRowId(prev => ({ ...prev, [rowId]: response.data }));
+  } catch (error) {
+    console.error("Error fetching items:", error);
+  }
+};
+
+
+const fetchAvailableStock = async (rowId, itemId) => {
+  try {
+    const locationId = parseInt(window.localStorage.getItem('locationid'), 10);
+    const response = await axios.get(
+      `${import.meta.env.VITE_RMK_MESS_URL}/dispatch/stockAvailability/${itemId}/${locationId}`
+    );
+
+    setAvailableStock(prev => ({ ...prev, [rowId]: response.data || [] }));
+  } catch (error) {
+    console.error("Error fetching available stock:", error);
+    toast.error("Failed to fetch available stock.");
+    setAvailableStock(prev => ({ ...prev, [rowId]: [] }));
+  }
+};
+
+
 
   const handleAddRows = () => {
     const numberOfRows = parseInt(numRecordsRef.current.value, 10);
@@ -224,12 +268,14 @@ function Dispatch() {
       const lastId = Date.now();
       const newRows = Array.from({ length: numberOfRows }, (_, index) => ({
         id: lastId + index,
+        category: '',
         item: '',
         quantity: '',
         location: '',
         receiver: '',
         incharge: '',
-        expiry: ''
+        selectedPurchaseId: '',
+        availableForBatch: 0
       }));
       setRows(prevRows => [...prevRows, ...newRows]);
       numRecordsRef.current.value = '';
@@ -237,48 +283,37 @@ function Dispatch() {
   };
 
   const handleInputChange = async (id, field, value) => {
-    if (field === 'item') {
-      const selectedItem = items.find(item => item.item_id == value);
-      if (selectedItem) {
-        try {
-          const expiryResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/expiry/${selectedItem.item_id}`);
-          const expiryData = expiryResponse.data.map(exp => ({ expiry_date: exp.expiry_date, purchase_id: exp.purchase_id }));
-  
-          setExpiryDates(prev => ({ ...prev, [id]: expiryData }));
-  
-          setRows(prevRows => 
-            prevRows.map(row => (row.id === id ? { ...row, item: value, expiry: '', quantity: '', location: '', receiver: '', incharge: '' } : row))
-          );
-        } catch (error) {
-          console.error("Error fetching expiry dates:", error);
-        }
-      }
-    } else if (field === 'expiry') {
-      const selectedExpiry = expiryDates[id]?.find(exp => exp.expiry_date === value);
-      const purchase_id = selectedExpiry ? selectedExpiry.purchase_id : null;
-  
-      if (purchase_id) {
-        try {
-          const stockResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/retrieveStock/${rows.find(r => r.id === id).item}/${purchase_id}`);
-          const stockData = stockResponse.data;
-  
-          setItemQuantities(prev => ({ ...prev, [id]: stockData.quantity }));
-  
-          setRows(prevRows => 
-            prevRows.map(row => (row.id === id ? { ...row, expiry: value, purchase_id } : row))
-          );
-        } catch (error) {
-          console.error("Error fetching stock data:", error);
-        }
-      }
-    } else {
-      setRows(prevRows => 
-        prevRows.map(row => (row.id === id ? { ...row, [field]: value } : row))
-      );
-    }
-  };
-  
+    if (field === 'category') {
+  fetchItemsForSubcategory(value, id);
+  setRows(prevRows => prevRows.map(row =>
+    row.id === id ? {
+      ...row, category: value, item: '', quantity: '', location: '', receiver: '', incharge: '', selectedPurchaseId: '', availableForBatch: 0
+    } : row
+  ));
+  return;
+}
 
+
+    if (field === 'item') {
+  console.log('Item selected:', id, value);
+
+  setRows(prevRows => prevRows.map(row =>
+    row.id === id ? {
+      ...row, item: value, quantity: ''
+    } : row
+  ));
+
+  // Fetch available stock after setting item
+  if (value) {
+    await fetchAvailableStock(id, value);
+  }
+  return;
+}
+
+    setRows(prevRows => 
+      prevRows.map(row => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  };
 
   const handleDeleteRow = (id) => {
     setRows(prevRows => prevRows.filter(row => row.id !== id));
@@ -286,21 +321,23 @@ function Dispatch() {
 
   const handleSubmit = async () => {
     const arr = rows.map(row => ({
-      purchase_id: row.purchase_id,
       item_id: row.item,
-      quantity: row.quantity,
-      location: row.location,
+      location_info: row.location,
+      quantity: parseFloat(row.quantity),
       receiver: row.receiver,
       incharge: row.incharge,
-      expiry: row.expiry,
-      dispatch_date: selectedDate ? selectedDate.format('YYYY-MM-DD') : '', // Format the date
+      dispatch_date: selectedDate ? selectedDate.format('YYYY-MM-DD') : ''
     }));
 
     try {
       setLoading(true);
-      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/createDispatch`, arr);
+      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/createDispatch`, {
+        arr,
+        location_id: parseInt(window.localStorage.getItem('locationid'), 10)
+      });
+
       toast.success("Items dispatched successfully");
-      setRows([{ id: Date.now(), item: '', quantity: '', location: '', receiver: '', incharge: '', expiry: '' }]);
+      setRows([{ id: Date.now(), category: '', item: '', quantity: '', location: '', receiver: '', incharge: '', selectedPurchaseId: '', availableForBatch: 0 }]);
       setSelectedDate(null);
     } catch (error) {
       console.error("Error dispatching items:", error);
@@ -314,15 +351,7 @@ function Dispatch() {
     <Container>
       {loading && (
         <div style={{
-          position: 'fixed',
-          top: '0',
-          left: '0',
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          position: 'fixed', top: '0', left: '0', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.7)'
         }}>
           <HashLoader color="#164863" loading={loading} size={90} />
         </div>
@@ -341,8 +370,8 @@ function Dispatch() {
         <thead>
           <tr>
             <th>SNo</th>
-            <th>Select Item</th>
-            <th>Expiry Date</th>
+            <th>Subcategory</th>
+            <th>Item</th>
             <th>Available</th>
             <th>Quantity</th>
             <th>Location</th>
@@ -356,62 +385,79 @@ function Dispatch() {
             <tr key={row.id}>
               <td>{index + 1}</td>
               <td>
-                <select value={row.item} onChange={(e) => handleInputChange(row.id, 'item', e.target.value)}>
-                  <option value="">Select Item</option>
-                  {items.map(item => (
-                    <option key={item.item_id} value={item.item_id}>
-                      {item.item_name}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td>
-                <select value={row.expiry} onChange={(e) => handleInputChange(row.id, 'expiry', e.target.value)}>
-                  <option value="">Select Expiry Date</option>
-                  {expiryDates[row.id]?.map((exp, idx) => (
-                    <option key={idx} value={exp.expiry_date}>
-                      {dayjs(exp.expiry_date).format("DD-MM-YYYY")}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td>{itemQuantities[row.id] || "N/A"}</td>
-              <td>
-                <input
-                  type="number"
-                  value={row.quantity}
-                  onChange={(e) => handleInputChange(row.id, 'quantity', e.target.value)}
+                <Autocomplete
+                  options={subcategories}
+                  value={row.category}
+                  onChange={(e, newValue) => handleInputChange(row.id, 'category', newValue || '')}
+                  renderInput={(params) => <TextField {...params} label="Subcategory" variant="outlined" size="small" />}
+                  sx={{ width: 150 }}
+                  freeSolo
                 />
               </td>
               <td>
-                <input
-                  type="text"
-                  value={row.location}
-                  onChange={(e) => handleInputChange(row.id, 'location', e.target.value)}
-                />
+               <Autocomplete
+                options={(itemsByRowId[row.id] || [])
+                  .filter(i => !rows.some(r => r.id !== row.id && r.item === i.item_id))
+                  .map(i => ({ label: i.item_name, id: i.item_id }))}
+                value={
+                  itemsByRowId[row.id]?.find(i => i.item_id === row.item)
+                    ? {
+                        label: itemsByRowId[row.id].find(i => i.item_id === row.item).item_name,
+                        id: row.item
+                      }
+                    : null
+                }
+                onChange={(e, newValue) => handleInputChange(row.id, 'item', newValue ? newValue.id : '')}
+                renderInput={(params) => <TextField {...params} label="Item" variant="outlined" size="small" />}
+                sx={{ width: 180 }}
+                disabled={!row.category}
+              />
+
+
               </td>
               <td>
-                <input
-                  type="text"
-                  value={row.receiver}
-                  onChange={(e) => handleInputChange(row.id, 'receiver', e.target.value)}
-                />
+                {availableStock[row.id]?.[0]?.quantity ?? 'N/A'}
               </td>
-              <td>
-                <input
-                  type="text"
-                  value={row.incharge}
-                  onChange={(e) => handleInputChange(row.id, 'incharge', e.target.value)}
-                />
-              </td>
-              <td>
-                <DeleteButton onClick={() => handleDeleteRow(row.id)}>Delete</DeleteButton>
-              </td>
+
+             <td>
+              <input
+                type="number"
+                value={row.quantity}
+                onChange={(e) => handleInputChange(row.id, 'quantity', e.target.value)}
+                min={0}
+                disabled={availableStock[row.id]?.[0]?.quantity === undefined}
+              />
+            </td>
+            <td>
+              <input
+                type="text"
+                value={row.location}
+                onChange={(e) => handleInputChange(row.id, 'location', e.target.value)}
+                disabled={availableStock[row.id]?.[0]?.quantity === undefined}
+              />
+            </td>
+            <td>
+              <input
+                type="text"
+                value={row.receiver}
+                onChange={(e) => handleInputChange(row.id, 'receiver', e.target.value)}
+                disabled={availableStock[row.id]?.[0]?.quantity === undefined}
+              />
+            </td>
+            <td>
+              <input
+                type="text"
+                value={row.incharge}
+                onChange={(e) => handleInputChange(row.id, 'incharge', e.target.value)}
+                disabled={availableStock[row.id]?.[0]?.quantity === undefined}
+              />
+            </td>
+
+              <td><DeleteButton onClick={() => handleDeleteRow(row.id)}>Delete</DeleteButton></td>
             </tr>
           ))}
         </tbody>
       </ItemTable>
-
       <SubmitContainer>
         <SubmitButton onClick={handleSubmit}>Submit Dispatch</SubmitButton>
       </SubmitContainer>
@@ -419,5 +465,7 @@ function Dispatch() {
     </Container>
   );
 }
+
+
 
 export default Dispatch;

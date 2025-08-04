@@ -92,11 +92,10 @@ function AvailableStock() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/stocks/availablestock`)
+    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/stocks/availablestock?location_id=${parseInt(window.localStorage.getItem('locationid'), 10)}`)
       .then(res => {
         const data = res.data.data.map(stock => ({
           ...stock,
-          daysLeftToExpire: calculateDaysLeft(stock.expiry_date),
           daysSincePurchase: calculateDaysSince(stock.purchase_date),
         }));
         setCurr(data); 
@@ -108,8 +107,6 @@ function AvailableStock() {
 
   const calculateDaysLeft = (expiryDate) => {
     const today = moment();
-    const expiry = moment(expiryDate);
-    return expiry.diff(today, 'days');
   };
 
   const calculateDaysSince = (purchaseDate) => {
@@ -149,22 +146,24 @@ function AvailableStock() {
         <thead>
           <tr>
             <th>ITEM</th>
+            <th>SUB CATEGORY</th>
             <th>CATEGORY</th>
             <th>QUANTITY</th>
-            <th>EXPIRY DATE</th>
-            <th>DAYS LEFT TO EXPIRE</th>
-            <th>DAYS SINCE PURCHASE</th>
+            {/* <th>EXPIRY DATE</th>
+            <th>DAYS LEFT TO EXPIRE</th> */}
+            {/* <th>DAYS SINCE PURCHASE</th> */}
           </tr>
         </thead>
         <tbody>
           {filteredCurr.length > 0 ? filteredCurr.map((item, index) => (
             <tr key={index}>
               <td>{item.itemName}</td>
+              <td>{item.subCategory}</td>
               <td>{item.category}</td>
               <td>{formatNumber(item.quantity)+" "+item.unit}</td>
-              <td>{moment(item.expiry_date).format('DD-MM-YYYY')}</td>
-              <td>{item.daysLeftToExpire >= 0 ? item.daysLeftToExpire : 'Expired'}</td>
-              <td>{item.daysSincePurchase}</td>
+              {/* <td>{moment(item.expiry_date).format('DD-MM-YYYY')}</td>
+              <td>{item.daysLeftToExpire >= 0 ? item.daysLeftToExpire : 'Expired'}</td> */}
+              {/* <td>{item.daysSincePurchase}</td> */}
             </tr>
           )) : (
             <tr>

@@ -91,16 +91,17 @@ function OrderToPlace() {
   const [filteredCurr, setFilteredCurr] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/minquant/minquant`)
+    useEffect(() => {
+    const locationId = parseInt(window.localStorage.getItem('locationid'), 10);
+    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/minquant/minquant?location_id=${locationId}`)
       .then(res => {
-        const data = res.data; 
-        setCurr(data); 
-        setFilteredCurr(data); 
-        console.log(data);
+        const data = res.data;
+        setCurr(data);
+        setFilteredCurr(data);
       })
       .catch(err => console.error("Error fetching minimum quantity data:", err));
   }, []);
+
   
 
   const calculateDaysLeft = (expiryDate) => {

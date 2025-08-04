@@ -80,23 +80,43 @@ function LoginPage() {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
-      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/login`, { username, password });
+  try {
+    const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/login`, { username, password });
+
+    if (response.data.token) {
+      window.sessionStorage.setItem('token', response.data.token);
+      window.sessionStorage.setItem('role', response.data.role);
+      window.sessionStorage.setItem('uname', response.data.uname);
       console.log(response.data);
-      if (response.data.token) {
-        window.sessionStorage.setItem('token', response.data.token);
-        window.sessionStorage.setItem('role', response.data.role);
-        window.sessionStorage.setItem('uname', response.data.uname);
-        setTimeout(()=>navigate('/dashboard'),1000);
-        toast.success(response.data.message || 'Login successful!'); 
+      let userLocationIds = response.data.locations || [];
+      if (typeof userLocationIds === 'string') {
+        try {
+          userLocationIds = JSON.parse(userLocationIds);
+        } catch (err) {
+          userLocationIds = [];
+        }
       }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Invalid username or password';
-      toast.error(errorMessage); 
+      userLocationIds = userLocationIds.map(Number); // Ensure numeric comparison
+
+      const locationResponse = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/locations`);
+      const allLocations = locationResponse.data;
+      
+      const userLocations = allLocations.filter(loc =>
+        userLocationIds.includes(loc.location_id)
+      );
+      console.log(userLocations,allLocations,userLocations);
+      window.sessionStorage.setItem('userlocations', JSON.stringify(userLocations));
+      toast.success(response.data.message || 'Login successful!');
+
+      setTimeout(() => navigate('/dashboard'), 1000);
     }
-  };
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || 'Invalid username or password';
+    toast.error(errorMessage);
+  }
+};
 
   return (
     <PageWrapper>

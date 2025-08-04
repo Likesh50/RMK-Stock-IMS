@@ -5,134 +5,39 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const Container = styled.div`
-  padding: 0px;
-  text-align: center;
-`;
-
-const Heading = styled.h1`
-  color: #164863;
-  margin-bottom: 20px;
-`;
-
-const SubHeading = styled.h3`
-  color: #164863;
-  margin-top: 20px;
-`;
-
-const Table = styled.table`
-  width: 80%;
-  border-collapse: collapse;
-  text-align: center;
-  margin-left: 140px;
-`;
-
-const Th = styled.th`
-  background-color: #164863;
-  color: white;
-  padding: 10px;
-  text-align: center;
-  border: 1px solid #ddd;
-  width: 200px;
-  max-width: 200px;
-`;
-
-const Td = styled.td`
-  padding: 10px;
-  border: 1px solid #ddd;
-  width: 200px;
-  max-width: 200px;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  padding: 8px;
-  box-sizing: border-box;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-
-  &:focus {
-    outline: 2px solid #164863;
-  }
-`;
-
-const Select = styled.select`
-  width: 80%;
-  padding: 8px;
-  box-sizing: border-box;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-`;
-
-const SubmitContainer = styled.div`
-  margin-top: 20px;
-  text-align: center;
-
-  .add-button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    background-color: #164863;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.3s, transform 0.2s;
-    margin-right: 10px;
-
-    &:hover {
-      background-color: #0a3d62;
-    }
-
-    &:active {
-      transform: scale(0.98);
-    }
-  }
-`;
-
-const SubmitButton = styled.button`
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  background-color: #4caf50;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
-
-  &:hover {
-    background-color: #45a049;
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
-`;
-
-const ErrorText = styled.div`
-  color: red;
-  margin-top: 20px;
-  font-size: 32px;
-`;
+// Styled Components
+const Container = styled.div` padding: 0px; text-align: center; `;
+const Heading = styled.h1` color: #164863; margin-bottom: 20px; `;
+const SubHeading = styled.h3` color: #164863; margin-top: 20px; `;
+const Table = styled.table` width: 80%; border-collapse: collapse; text-align: center; margin-left: 140px; `;
+const Th = styled.th` background-color: #164863; color: white; padding: 10px; border: 1px solid #ddd; width: 200px; `;
+const Td = styled.td` padding: 10px; border: 1px solid #ddd; width: 200px; `;
+const Input = styled.input` width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; &:focus { outline: 2px solid #164863; } `;
+const Select = styled.select` width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; `;
+const SubmitContainer = styled.div` margin-top: 20px; text-align: center; .add-button { padding: 10px 20px; border: none; border-radius: 4px; background-color: #164863; color: white; font-size: 16px; cursor: pointer; margin-right: 10px; &:hover { background-color: #0a3d62; } &:active { transform: scale(0.98); } } `;
+const SubmitButton = styled.button` padding: 10px 20px; border: none; border-radius: 4px; background-color: #4caf50; color: white; font-size: 16px; cursor: pointer; &:hover { background-color: #45a049; } &:active { transform: scale(0.98); } `;
+const ErrorText = styled.div` color: red; margin-top: 20px; font-size: 32px; `;
 
 const AddItems = () => {
   const [itemName, setItemName] = useState("");
-  const [category, setCategory] = useState("");
+  const [categoryList, setCategoryList] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [itemsAvail, setItemsAvail] = useState([]);
+
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedSubCategory, setSelectedSubCategory] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [newSubCategory, setNewSubCategory] = useState("");
   const [unit, setUnit] = useState("");
   const [minimum, setMinimum] = useState("");
-  const [items, setItems] = useState([]);
-  const [itemsAvail, setItemsAvail] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
 
   useEffect(() => {
-    const fetchItems = async () => {
+    const fetchCategories = async () => {
       try {
         const response = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/getCategory`);
-        setItems(response.data);
+        setCategoryList(response.data); // Expecting [{category: 'Electrical', sub_category: 'Switches'}, ...]
       } catch (error) {
-        console.error("Error fetching items:", error);
+        console.error("Error fetching categories:", error);
       }
     };
 
@@ -141,16 +46,16 @@ const AddItems = () => {
         const response = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/getItemCategory`);
         setItemsAvail(response.data);
       } catch (error) {
-        console.error("Error fetching items:", error);
+        console.error("Error fetching existing items:", error);
       }
     };
 
-    fetchItems();
+    fetchCategories();
     fetchItemsAvail();
   }, []);
 
-  const handleInputChange = (event) => {
-    const value = event.target.value;
+  const handleInputChange = (e) => {
+    const value = e.target.value;
     setItemName(value);
     if (value) {
       const filtered = itemsAvail.filter(item =>
@@ -162,48 +67,44 @@ const AddItems = () => {
     }
   };
 
-  const handleCategoryChange = (event) => {
-    setCategory(event.target.value);
-    if (event.target.value === "Others") {
-      setNewCategory(""); // Reset new category input when "Others" is selected
-    }
-  };
+  const uniqueCategories = [...new Set(categoryList.map(item => item.category))];
+
+  const subCategoriesForSelected = categoryList
+    .filter(item => item.category === selectedCategory)
+    .map(item => item.sub_category)
+    .filter((v, i, a) => a.indexOf(v) === i); // Unique
 
   const handleSubmit = async () => {
-    if (!itemName) {
-      toast.error("Please enter item name before adding.");
-      return;
-    }
+    const finalCategory = selectedCategory === "Others" ? newCategory : selectedCategory;
+    const finalSubCategory = selectedSubCategory === "Others" ? newSubCategory : selectedSubCategory;
 
-    const finalCategory = category === "Others" ? newCategory : category;
-
-    if (!finalCategory) {
-      toast.error("Please select a category before adding.");
-      return;
-    }
-
-    if (!unit) {
-      toast.error("Please enter unit before adding.");
-      return;
-    }
-
-    if (!minimum) {
-      toast.error("Please enter minimum quantity before adding.");
+    if (!itemName || !finalCategory || !finalSubCategory || !unit || !minimum) {
+      toast.error("Please fill in all fields.");
       return;
     }
 
     try {
-      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/insert`, { itemName, category: finalCategory, unit, minimum });
-      toast.success("Item added successfully");
-      
+      await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/insert`, {
+        itemName,
+        category: finalCategory,
+        subCategory: finalSubCategory,
+        unit,
+        minimum
+      });
+
+      toast.success("Item added successfully!");
+
+      // Reset all fields
       setItemName("");
-      setCategory("");
+      setSelectedCategory("");
+      setSelectedSubCategory("");
+      setNewCategory("");
+      setNewSubCategory("");
       setUnit("");
       setMinimum("");
-      setNewCategory("");
       setFilteredItems([]);
     } catch (error) {
-      toast.error(error.response ? error.response.data : 'An error occurred while adding the item.');
+      toast.error(error.response?.data || 'Error adding item.');
     }
   };
 
@@ -216,6 +117,7 @@ const AddItems = () => {
             <Th>SNo</Th>
             <Th>Item Name</Th>
             <Th>Category</Th>
+            <Th>Sub Category</Th>
             <Th>Minimum Quantity</Th>
             <Th>Unit</Th>
           </tr>
@@ -223,35 +125,54 @@ const AddItems = () => {
         <tbody>
           <tr>
             <Td>1</Td>
-            <Td><Input value={itemName} placeholder="ITEM" onChange={handleInputChange} /></Td>
+            <Td><Input value={itemName} placeholder="Item Name" onChange={handleInputChange} /></Td>
+
+            {/* CATEGORY SELECT */}
             <Td>
-              <Select value={category} onChange={handleCategoryChange}>
+              <Select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
                 <option value="" disabled>Select Category</option>
-                {items.map((item, idx) => (
-                  <option key={idx} value={item.category}>
-                    {item.category}
-                  </option>
+                {uniqueCategories.map((cat, idx) => (
+                  <option key={idx} value={cat}>{cat}</option>
                 ))}
                 <option value="Others">Others</option>
               </Select>
-              {category === "Others" && (
+              {selectedCategory === "Others" && (
                 <Input
-                  value={newCategory}
                   placeholder="Enter new category"
+                  value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                 />
               )}
             </Td>
+
+            {/* SUB CATEGORY SELECT */}
             <Td>
-              <Input value={minimum} placeholder="Minimum Quantity" onChange={(e) => setMinimum(e.target.value)} />
+              <Select value={selectedSubCategory} onChange={(e) => setSelectedSubCategory(e.target.value)}>
+                <option value="" disabled>Select Sub Category</option>
+                {subCategoriesForSelected.map((sub, idx) => (
+                  <option key={idx} value={sub}>{sub}</option>
+                ))}
+                <option value="Others">Others</option>
+              </Select>
+              {selectedSubCategory === "Others" && (
+                <Input
+                  placeholder="Enter new sub-category"
+                  value={newSubCategory}
+                  onChange={(e) => setNewSubCategory(e.target.value)}
+                />
+              )}
             </Td>
-            <Td><Input value={unit} placeholder="UNIT" onChange={(e) => setUnit(e.target.value)} /></Td>
+
+            <Td><Input type="number" value={minimum} placeholder="Min Qty" onChange={(e) => setMinimum(e.target.value)} /></Td>
+            <Td><Input value={unit} placeholder="Unit" onChange={(e) => setUnit(e.target.value)} /></Td>
           </tr>
         </tbody>
       </Table>
+
       <SubmitContainer>
         <SubmitButton onClick={handleSubmit}>Add</SubmitButton>
       </SubmitContainer>
+
       <SubHeading>Existing Items That Match</SubHeading>
       {filteredItems.length > 0 && (
         <Table className="table table-bordered">
@@ -275,9 +196,11 @@ const AddItems = () => {
           </tbody>
         </Table>
       )}
+
       <ToastContainer />
     </Container>
   );
 };
 
 export default AddItems;
+  

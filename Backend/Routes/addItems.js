@@ -4,53 +4,68 @@ var router = express.Router();
 router.get('/getCategory', async (req, res) => {
     try {
       console.log("working");
-      const [rows] = await db.promise().query('SELECT category FROM items GROUP BY category');
+      const [rows] = await db.query('SELECT category, sub_category FROM items GROUP BY category, sub_category');
       res.status(200).json(rows);
     } catch (error) {
       console.error('Error fetching items:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
+  router.get('/getSubCategories', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT DISTINCT sub_category FROM items ORDER BY sub_category where category=?'
+    ,category);
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error fetching subcategories:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
   router.get('/getItemCategory', async (req, res) => {
     try {
       console.log("working");
-      const [rows] = await db.promise().query('SELECT item_name,category,unit,min_quantity FROM items ORDER BY item_name');
+      const [rows] = await db.query('SELECT item_name,category,sub_category,unit,min_quantity FROM items ORDER BY item_name');
       res.status(200).json(rows);
     } catch (error) {
       console.error('Error fetching items:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
-  router.post('/insert', (req, res) => {
-    const cat = req.body.category;
-    const items = req.body.itemName;
-    const unit = req.body.unit;
-    const minimum = req.body.minimum;
+router.post('/insert', async (req, res) => {
+  const { category, subCategory, itemName, unit, minimum } = req.body;
+  console.log(req.body);
+  try {
+    const [existing] = await db.query('SELECT * FROM items WHERE item_name = ?', [itemName]);
+    if (existing.length > 0) {
+      return res.status(400).send('Record already exists');
+    }
 
-    console.log(req.body);
+    await db.query(
+      'INSERT INTO items (item_name, category, sub_category, unit, min_quantity) VALUES (?, ?, ?, ?, ?)',
+      [itemName, category, subCategory, unit, minimum]
+    );
 
-    // Check if the record already exists in the category table
-    db.query('SELECT * FROM items WHERE item_name = ?', [items], (err, results) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send('Error checking existing records');
-        }
+    return res.status(200).send('Item inserted successfully');
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send('Error inserting item');
+  }
+});
+router.get('/getBySubCategory', async (req, res) => {
+  const { sub_category } = req.query;
 
-        if (results.length > 0) {
-            // Record already exists
-            return res.status(400).send('Record already exists');
-        }
-
-        // Record does not exist, proceed to insert
-        db.query('INSERT INTO items (item_name, category, unit, min_quantity) VALUES (?, ?, ?, ?)', [items, cat, unit, minimum], (err, result) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).send('Error inserting into category');
-            }
-
-          return res.status(200).send('Item inserted successfully');
-        });
-    });
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM items WHERE sub_category = ? ORDER BY item_name',
+      [sub_category]
+    );
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error fetching by subcategory:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 

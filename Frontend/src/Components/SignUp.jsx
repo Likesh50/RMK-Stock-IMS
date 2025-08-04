@@ -6,6 +6,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import backgroundImage from '../assets/Front.jpg';
 import logo from '../assets/Logo.png';
+import { useEffect } from 'react';
 
 const PageWrapper = styled.div`
   background-image: url(${backgroundImage});
@@ -72,6 +73,23 @@ function SignupPage() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Viewer'); 
   const navigate = useNavigate();
+  const [locations,setLocations]=useState([]);
+  const [userSelectedLocations,setUserSelectedLocations]=useState([]);
+
+  useEffect(() => {
+  const fetchLocations = async () => {
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/locations`);
+      if (response.data) {
+        setLocations(response.data);  // Use response.data instead of existing `locations`
+      }
+    } catch {
+      toast.error("Error fetching location details");
+    }
+  };
+
+  fetchLocations();
+}, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,7 +98,8 @@ function SignupPage() {
       const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/signup`, {
         username,
         password,
-        role
+        role,
+        locations: userSelectedLocations
       });
 
       if (response.data.token) {
@@ -134,6 +153,35 @@ function SignupPage() {
               <option value="Admin">Developer</option>
             </select>
           </FormGroup>
+         <FormGroup>
+  <label>Select Locations</label>
+  <div>
+    {locations.map((location) => (
+      <div key={location.location_id}>
+        <label>
+          <input
+            type="checkbox"
+            value={location.location_id}
+            checked={userSelectedLocations.includes(location.location_id)}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              if (e.target.checked) {
+                setUserSelectedLocations([...userSelectedLocations, value]);
+              } else {
+                setUserSelectedLocations(
+                  userSelectedLocations.filter((id) => id !== value)
+                );
+              }
+            }}
+          />
+          {location.location_name}
+        </label>
+      </div>
+    ))}
+  </div>
+</FormGroup>
+
+
           <SubmitButton type="submit">Sign up</SubmitButton>
         </form>
       </SignupForm>

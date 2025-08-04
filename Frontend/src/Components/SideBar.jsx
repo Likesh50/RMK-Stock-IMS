@@ -111,13 +111,13 @@ const SideBar = () => {
           </Link>
         </SidebarItem>
 
-        <SidebarItem className={isActive('/dashboard/expiry')}>
+        {/* <SidebarItem className={isActive('/dashboard/expiry')}>
           <Link to="expiry">
             <img src={expiry} width="40px" height="40px" alt="Reports" />
             Expiring Items
           </Link>
         </SidebarItem>
-
+ */}
         {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/updateitem')}>
           <Link to="./updateitem">
             <img src={pen} width="50px" height="40px" alt="updateitem" />
@@ -125,7 +125,7 @@ const SideBar = () => {
           </Link>
         </SidebarItem>)}
         
-        <SidebarItem className={isActive('/dashboard/editpurchase')}>
+        {/* <SidebarItem className={isActive('/dashboard/editpurchase')}>
           <Link to="editpurchase">
             <img src={editpurchase} width="40px" height="40px" alt="Reports" />
             Edit Purchase
@@ -136,7 +136,7 @@ const SideBar = () => {
             <img src={editdispatch} width="40px" height="40px" alt="Reports" />
             Edit Dispatch
           </Link>
-        </SidebarItem>
+        </SidebarItem> */}
         <SidebarItem className={isActive('/dashboard/itemtable')}>
           <Link to="itemtable">
             <img src={Itemlist} width="40px" height="40px" alt="Reports" />

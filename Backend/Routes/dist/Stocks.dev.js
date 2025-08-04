@@ -15,7 +15,7 @@ router.get('/availablestock', function _callee(req, res) {
         case 0:
           try {
             // Query to join stocks, items, and purchases tables
-            query = "\n            SELECT \n                i.item_name AS itemName,\n                i.category AS category,\n                i.unit AS unit,\n                s.quantity AS quantity,\n                p.expiry_date AS expiryDate,\n                p.purchase_date AS purchaseDate\n            FROM stock s\n            JOIN items i ON s.item_id = i.item_id\n            JOIN purchases p ON s.purchase_id = p.purchase_id\n            ORDER BY i.item_name, p.expiry_date;\n        "; // Fetch data from the database
+            query = "\n            SELECT \n i.item_name AS itemName,\n                i.category AS category,\n                i.unit AS unit,\n                s.quantity AS quantity,\n                p.expiry_date AS expiryDate,\n                p.purchase_date AS purchaseDate\n            FROM stock s\n            JOIN items i ON s.item_id = i.item_id\n            JOIN purchases p ON s.purchase_id = p.purchase_id\n            ORDER BY i.item_name, p.expiry_date;\n        "; // Fetch data from the database
 
             db.query(query, function (error, rows) {
               if (error) {
