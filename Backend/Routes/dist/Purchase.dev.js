@@ -25,7 +25,7 @@ router.get('/getItems', function _callee(req, res) {
           _context.prev = 0;
           console.log("working");
           _context.next = 4;
-          return regeneratorRuntime.awrap(db.promise().query('SELECT item_name,category FROM items ORDER BY item_name'));
+          return regeneratorRuntime.awrap(db.query('SELECT item_name,category FROM items ORDER BY item_name'));
 
         case 4:
           _ref = _context.sent;
@@ -71,7 +71,7 @@ router.post('/getCategoryVendor', function _callee2(req, res) {
         case 3:
           _context2.prev = 3;
           _context2.next = 6;
-          return regeneratorRuntime.awrap(db.promise().query('SELECT category FROM items WHERE item_name = ?', [item]));
+          return regeneratorRuntime.awrap(db.query('SELECT category FROM items WHERE item_name = ?', [item]));
 
         case 6:
           _ref3 = _context2.sent;
@@ -136,7 +136,7 @@ router.post('/add', function _callee3(req, res) {
           console.log(itemName, purchaseQuantity, total, FormattedManufacturingDate);
           getItemQuery = 'SELECT item_id FROM items WHERE item_name = ? AND category = ?';
           _context3.next = 28;
-          return regeneratorRuntime.awrap(db.promise().query(getItemQuery, [itemName, category]));
+          return regeneratorRuntime.awrap(db.query(getItemQuery, [itemName, category]));
 
         case 28:
           _ref5 = _context3.sent;
@@ -145,7 +145,7 @@ router.post('/add', function _callee3(req, res) {
           item_id = itemResult[0].item_id;
           insertPurchaseQuery = "INSERT INTO purchases (item_id, quantity, invoice_no, amount, shop_address, purchase_date,manufacturing_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
           _context3.next = 35;
-          return regeneratorRuntime.awrap(db.promise().query(insertPurchaseQuery, [item_id, quantity, invoice, amount, address, date, rawDate, FormattedManufacturingDate]));
+          return regeneratorRuntime.awrap(db.query(insertPurchaseQuery, [item_id, quantity, invoice, amount, address, date, rawDate, FormattedManufacturingDate]));
 
         case 35:
           _ref7 = _context3.sent;
@@ -154,7 +154,7 @@ router.post('/add', function _callee3(req, res) {
           purchase_id = purchaseResult.insertId;
           insertStockQuery = "INSERT INTO stock (purchase_id, item_id, quantity) VALUES (?, ?, ?)";
           _context3.next = 42;
-          return regeneratorRuntime.awrap(db.promise().query(insertStockQuery, [purchase_id, item_id, quantity]));
+          return regeneratorRuntime.awrap(db.query(insertStockQuery, [purchase_id, item_id, quantity]));
 
         case 42:
           console.log('Purchase and stock records inserted successfully');
@@ -226,7 +226,7 @@ router.get('/getPurchases/:date', function _callee4(req, res) {
           date = req.params.date;
           _context4.prev = 1;
           _context4.next = 4;
-          return regeneratorRuntime.awrap(db.promise().query('SELECT i.item_name,p.* FROM purchases p,items i WHERE p.item_id=i.item_id and p.purchase_date = ?', [date]));
+          return regeneratorRuntime.awrap(db.query('SELECT i.item_name,p.* FROM purchases p,items i WHERE p.item_id=i.item_id and p.purchase_date = ?', [date]));
 
         case 4:
           _ref9 = _context4.sent;
@@ -275,7 +275,7 @@ router.post('/updatePurchase', function _callee5(req, res) {
           _context5.prev = 5;
           updateQuery = "UPDATE purchases SET quantity = ?, invoice_no = ?, amount = ?, shop_address = ?, manufacturing_date = ?, expiry_date = ? WHERE purchase_id = ?";
           _context5.next = 9;
-          return regeneratorRuntime.awrap(db.promise().query(updateQuery, [quantity, invoice_no, amount, shop_address, formattedManufacturingDate, formattedExpiryDate, purchase_id]));
+          return regeneratorRuntime.awrap(db.query(updateQuery, [quantity, invoice_no, amount, shop_address, formattedManufacturingDate, formattedExpiryDate, purchase_id]));
 
         case 9:
           res.status(200).json({

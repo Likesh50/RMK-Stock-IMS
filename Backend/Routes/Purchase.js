@@ -2,148 +2,127 @@ var express = require('express');
 const db = require('../db');
 const moment = require('moment');
 var router = express.Router();
-router.get('/getItems', async (req, res) => {
-    try {
-      console.log("working");
-      const [rows] = await db.promise().query('SELECT item_name,category FROM items ORDER BY item_name');
-      res.status(200).json(rows);
-    } catch (error) {
-      console.error('Error fetching items:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  });
-  router.post('/getCategoryVendor', async (req, res) => {
-    const { item } = req.body;
-  
-    if (!item) {
-      return res.status(400).json({ message: 'Item is required' });
-    }
-    try {
-      const [rows] = await db.promise().query('SELECT category FROM items WHERE item_name = ?', [item]);
-      res.status(200).json(rows);
-    } catch (error) {
-      console.error('Error fetching category:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  });
 
-router.post('/addfromexcel', async (req, res) => {
-  console.log("Processing request...");
-  const arr = req.body.arr; 
-  const date = req.body.date;
-  console.log(arr);
-  console.log(date);
-
+router.get('/categories', async (req, res) => {
+  const { item } = req.query;             // moved to query for GET
+  if (!item) {
+    return res.status(400).json({ message: 'Item is required' });
+  }
   try {
-    // Extract item_ids from the incoming data
-    const itemIds = arr.map(item => item.item_id);
-
-    // Check if all item_ids exist in the items table
-    const [validItems] = await db.promise().query('SELECT item_id FROM items WHERE item_id IN (?)', [itemIds]);
-    const validItemIds = validItems.map(item => item.item_id);
-
-    // Determine invalid item_ids
-    const invalidIds = itemIds.filter(id => !validItemIds.includes(id));
-    if (invalidIds.length > 0) {
-      return res.status(400).json({ message: "Invalid item IDs found", invalidIds });
-    }
-
-    for (let item of arr) {
-      const { item_id, quantity, manufacturingDate, amount, expiry, invoice, address } = item;
-      const purchaseQuantity = Number(quantity) || 0;
-      const total = Number(amount) || 0;
-      const expiryMonths = Number(expiry);
-
-      let manifacturedate = new Date(manufacturingDate);
-      const rawDate = manifacturedate.toISOString().split('T')[0];
-      manifacturedate.setMonth(manifacturedate.getMonth() + expiryMonths);
-
-      const year = manifacturedate.getFullYear();
-      const month = String(manifacturedate.getMonth() + 1).padStart(2, '0'); 
-      const day = String(manifacturedate.getDate()).padStart(2, '0');
-
-      const FormattedManufacturingDate = `${year}-${month}-${day}`;
-
-      // Inserting purchase data
-      const insertPurchaseQuery = `INSERT INTO purchases (item_id, quantity, invoice_no, amount, shop_address, purchase_date, manufacturing_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-      const [purchaseResult] = await db.promise().query(insertPurchaseQuery, [item_id, quantity, invoice, amount, address, date, rawDate, FormattedManufacturingDate]);
-
-      const purchase_id = purchaseResult.insertId;
-
-      // Inserting stock data
-      const insertStockQuery = `INSERT INTO stock (purchase_id, item_id, quantity) VALUES (?, ?, ?)`;
-      await db.promise().query(insertStockQuery, [purchase_id, item_id, quantity]);
-
-      console.log('Purchase and stock records inserted successfully');
-    }
-
-    res.send("Items processed successfully");
+    const [rows] = await db.query(
+      'SELECT category FROM items WHERE item_name = ?',
+      [item]
+    );
+    res.status(200).json(rows);
   } catch (error) {
-    console.error("Error processing request:", error);
-    res.status(500).send("An error occurred");
+    console.error('Error fetching category:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
-  //init
+router.get('/subcategories', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT DISTINCT sub_category FROM items'
+    );
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Error fetching subcategories:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+router.get('/getItemsBySubcategory', async (req, res) => {
+  const { subcategory } = req.query;
+  if (!subcategory) {
+    return res.status(400).json({ message: 'Subcategory is required' });
+  }
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM items WHERE sub_category = ?',
+      [subcategory]
+    );
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Error fetching items:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
   router.post('/add', async (req, res) => {
-    console.log("Processing request...");
-    const arr = req.body.arr; 
-    const date = req.body.date;
-    console.log(arr);
-    console.log(date);
-  
-    try {
-      for (let item of arr) {  
-        const { item: itemName, category, quantity,manufacturingDate, amount,expiry,invoice, address } = item;
-        const purchaseQuantity = Number(quantity) || 0;
-        const total = Number(amount) || 0;
-        const expiryMonths = Number(expiry);
+  const arr = req.body.arr;
+  const purchaseDate = req.body.date;
+  const locationId = req.body.location;
 
+  if (!Array.isArray(arr) || !purchaseDate || !locationId) {
+    return res.status(400).json({ message: 'Invalid payload' });
+  }
 
-        let manifacturedate = new Date(manufacturingDate);
-        const rawDate = manifacturedate.toISOString().split('T')[0];
-        manifacturedate.setMonth(manifacturedate.getMonth() + expiryMonths);
-      
-        const year = manifacturedate.getFullYear();
-        const month = String(manifacturedate.getMonth() + 1).padStart(2, '0'); 
-        const day = String(manifacturedate.getDate()).padStart(2, '0');
+  let conn;
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction();
 
-        const FormattedManufacturingDate=`${year}-${month}-${day}`;
-        
-        console.log(itemName, purchaseQuantity, total, FormattedManufacturingDate);
-  
+    for (const row of arr) {
+      const {
+        item_id,      // now directly provided
+        quantity,
+        amount,
+        invoice,
+        shop_id
+      } = row;
 
-        const getItemQuery = 'SELECT item_id FROM items WHERE item_name = ? AND category = ?';
-
-        const [itemResult] = await db.promise().query(getItemQuery, [itemName, category]);
-        const item_id = itemResult[0].item_id;
-
-        const insertPurchaseQuery = `INSERT INTO purchases (item_id, quantity, invoice_no, amount, shop_address, purchase_date,manufacturing_date, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-        const [purchaseResult] = await db.promise().query(insertPurchaseQuery, [item_id, quantity, invoice, amount, address, date, rawDate, FormattedManufacturingDate]);
-
-        const purchase_id = purchaseResult.insertId;
-
-        const insertStockQuery = `INSERT INTO stock (purchase_id, item_id, quantity) VALUES (?, ?, ?)`;
-        await db.promise().query(insertStockQuery, [purchase_id, item_id, quantity]);
-
-        console.log('Purchase and stock records inserted successfully');
-
+      // validation
+      if (!item_id || !quantity || !amount || !invoice || !shop_id) {
+        throw new Error('Missing fields in one of the rows');
       }
-  
-      res.send("Items processed successfully");
-    } catch (error) {
-      console.error("Error processing request:", error);
-      res.status(500).send("An error occurred");
+
+      const qty = Number(quantity);
+      const total = Number(amount);
+
+      // Insert into purchases
+      const insertPurchase = `
+        INSERT INTO purchases
+          (item_id, quantity, invoice_no, amount, shop_id, purchase_date, location_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+      await conn.query(insertPurchase, [
+        item_id,
+        qty,
+        invoice,
+        total,
+        shop_id,
+        purchaseDate,
+        locationId
+      ]);
+
+      // Upsert into stock
+      const upsertStock = `
+        INSERT INTO stock (item_id, quantity, location_id)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
+      `;
+      await conn.query(upsertStock, [item_id, qty, locationId]);
     }
 
-    
-  });
+    await conn.commit();
+    res.status(200).json({ message: 'Items processed successfully' });
+
+  } catch (err) {
+    console.error('Error processing purchase/add:', err);
+    if (conn) await conn.rollback();
+    res.status(500).json({ message: err.message || 'Internal server error' });
+
+  } finally {
+    if (conn) conn.release();
+  }
+});
 
   router.get('/getPurchases/:date', async (req, res) => {
     const date = req.params.date;
     
     try {
-        const [rows] = await db.promise().query('SELECT i.item_name,p.* FROM purchases p,items i WHERE p.item_id=i.item_id and p.purchase_date = ?', [date]);
+        const [rows] = await db.query('SELECT i.item_name,p.* FROM purchases p,items i WHERE p.item_id=i.item_id and p.purchase_date = ?', [date]);
         res.status(200).json(rows);
     } catch (error) {
         console.error('Error fetching purchases:', error);
@@ -151,26 +130,5 @@ router.post('/addfromexcel', async (req, res) => {
     }
 });
 
-router.post('/updatePurchase', async (req, res) => {
-    const { purchase_id, quantity, invoice_no, amount, shop_address, manufacturing_date, expiry_date } = req.body;
-    const formattedManufacturingDate = moment(manufacturing_date).format('YYYY-MM-DD');
-    const formattedExpiryDate = moment(expiry_date).format('YYYY-MM-DD');
-    if (!purchase_id || quantity === undefined || !invoice_no || amount === undefined || !shop_address || !manufacturing_date || !expiry_date) {
-        return res.status(400).json({ message: 'All fields are required' });
-    }
-
-    try {
-        const updateQuery = `UPDATE purchases SET quantity = ?, invoice_no = ?, amount = ?, shop_address = ?, manufacturing_date = ?, expiry_date = ? WHERE purchase_id = ?`;
-        await db.promise().query(updateQuery, [quantity, invoice_no, amount, shop_address, formattedManufacturingDate, formattedExpiryDate, purchase_id]);
-
-        res.status(200).json({ message: 'Purchase updated successfully' });
-    } catch (error) {
-        console.error('Error updating purchase:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-  
-  
     
   module.exports=router;

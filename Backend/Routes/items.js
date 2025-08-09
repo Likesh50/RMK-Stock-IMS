@@ -1,46 +1,35 @@
 const express = require('express');
 const db = require('../db'); // Assuming you have a DB connection module
 const router = express.Router();
-
-// Fetch all items
-router.get('/', (req, res) => {
-    const query = `SELECT * FROM items order by category,item_name`;
-
-    db.query(query, (err, result) => {
-        if (err) {
-            console.error('Error executing query:', err);
-            return res.status(500).json({ error: 'Database fetch error' });
-        }
-
-        res.json(result); // Send all items as JSON
-    });
+router.get('/', async (req, res) => {
+    try {
+        const [rows] = await db.query(`SELECT * FROM items ORDER BY sub_category,category, item_name`);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error executing query:', err);
+        res.status(500).json({ error: 'Database fetch error' });
+    }
 });
 
-// Fetch a single item by ID
-router.get('/:id', (req, res) => {
+// ✅ Fetch single item
+router.get('/:id', async (req, res) => {
     const { id } = req.params;
-
-    const query = `SELECT * FROM items WHERE item_id = ?`;
-
-    db.query(query, [id], (err, result) => {
-        if (err) {
-            console.error('Error executing query:', err);
-            return res.status(500).json({ error: 'Database fetch error' });
-        }
-
-        if (result.length === 0) {
+    try {
+        const [rows] = await db.query(`SELECT * FROM items WHERE item_id = ?`, [id]);
+        if (rows.length === 0) {
             return res.status(404).json({ error: `Item with ID ${id} not found` });
         }
-
-        res.json(result[0]); // Send the single item as JSON
-    });
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('Error executing query:', err);
+        res.status(500).json({ error: 'Database fetch error' });
+    }
 });
 
-// Update an item (already provided)
-router.put('/:id', (req, res) => {
+// ✅ Update item
+router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { item_name, unit, category, min_quantity } = req.body;
-
     const query = `
         UPDATE items 
         SET item_name = ?, unit = ?, category = ?, min_quantity = ? 
@@ -48,38 +37,31 @@ router.put('/:id', (req, res) => {
     `;
     const data = [item_name, unit.toUpperCase(), category, min_quantity, id];
 
-    db.query(query, data, (err, result) => {
-        if (err) {
-            console.error('Error executing query:', err);
-            return res.status(500).json({ error: 'Database update error' });
-        }
-
+    try {
+        const [result] = await db.query(query, data);
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: `Item with ID ${id} not found` });
         }
-
         res.json({ message: `Item with ID ${id} updated successfully` });
-    });
+    } catch (err) {
+        console.error('Error executing query:', err);
+        res.status(500).json({ error: 'Database update error' });
+    }
 });
 
-// Delete an item (already provided)
-router.delete('/:id', (req, res) => {
+// ✅ Delete item
+router.delete('/:id', async (req, res) => {
     const { id } = req.params;
-
-    const query = `DELETE FROM items WHERE item_id = ?`;
-
-    db.query(query, [id], (err, result) => {
-        if (err) {
-            console.error('Error executing query:', err);
-            return res.status(500).json({ error: 'Database delete error' });
-        }
-
+    try {
+        const [result] = await db.query(`DELETE FROM items WHERE item_id = ?`, [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: `Item with ID ${id} not found` });
         }
-
         res.json({ message: `Item with ID ${id} deleted successfully` });
-    });
+    } catch (err) {
+        console.error('Error executing query:', err);
+        res.status(500).json({ error: 'Database delete error' });
+    }
 });
 
 module.exports = router;
