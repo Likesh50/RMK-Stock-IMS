@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/RMK.png';
+import LocationDropdown from './LocationDropdown';
 
 const Header = styled.header`
   position: fixed;
@@ -94,6 +95,7 @@ function NavBar() {
       </Left>
       <Alig>
         <h5>{window.sessionStorage.getItem("uname")}</h5>
+        <LocationDropdown/>
         <LogoutButton onClick={handleLogout}>Logout</LogoutButton>
       </Alig>
     </Header>

@@ -108,6 +108,8 @@ function LoginPage() {
       );
       console.log(userLocations,allLocations,userLocations);
       window.sessionStorage.setItem('userlocations', JSON.stringify(userLocations));
+      console.log(userLocations);
+
       toast.success(response.data.message || 'Login successful!');
 
       setTimeout(() => navigate('/dashboard'), 1000);
