@@ -10,7 +10,14 @@
   import 'react-toastify/dist/ReactToastify.css';
   import { HashLoader } from 'react-spinners'; 
   import { Autocomplete, TextField } from '@mui/material';
-
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button
+} from '@mui/material';
   const Container = styled.div`
     h1 {
       color: #164863;
@@ -209,7 +216,26 @@
     const [loading, setLoading] = useState(false);
     const [subcategories, setSubcategories] = useState([]);
     const [shopAddresses, setShopAddresses] = useState([]);
-    
+    const [selectedId, setSelectedId] = useState(() => {
+      return localStorage.getItem('locationid') || '';
+    });
+    const [locations, setLocations] = useState([]);
+
+    useEffect(() => {
+      const stored = sessionStorage.getItem('userlocations');
+      if (stored) {
+        try {
+          setLocations(JSON.parse(stored));
+        } catch (err) {
+          console.error('Invalid JSON in sessionStorage for userlocations:', err);
+        }
+      }
+    }, []);
+    const selectedLocationName = locations.find(loc => loc.location_id == selectedId)?.location_name || '';
+
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [submitData, setSubmitData] = useState(null); // temp store data before actual submission
+
     // useEffect(() => {
       //   const fetchItems = async () => {
     //     try {
@@ -224,7 +250,78 @@
     //   fetchItems();
     // }, []);
 
-    
+  const handleValidateAndConfirm = () => {
+  if (!date) {
+    toast.error("Please enter the date.");
+    return;
+  }
+
+  const invalidRows = rows.filter(row =>
+    !row.item_id || !row.quantity || !row.amount || !row.shop?.value || !row.invoice
+  );
+
+  if (invalidRows.length > 0) {
+    toast.error("Please fill in all the fields for each row.");
+    return;
+  }
+
+  const formattedDate = date.format('YYYY-MM-DD');
+  const locationId = parseInt(localStorage.getItem('locationid'), 10);
+
+  const updatedRows = rows.map(row => ({
+    item_id: row.item_id,
+    quantity: row.quantity,
+    amount: row.amount,
+    invoice: row.invoice,
+    shop_id: row.shop?.value
+  }));
+
+  // Store submission data temporarily
+  setSubmitData({ date: formattedDate, rows: updatedRows, location: locationId });
+
+  // Show confirmation dialog
+  setShowConfirmDialog(true);
+};
+const confirmSubmit = async () => {
+  if (!submitData) return;
+
+  try {
+    setLoading(true);
+    const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/purchase/add`, {
+      date: submitData.date,
+      arr: submitData.rows,
+      location: submitData.location
+    });
+
+    toast.success("Items added successfully");
+
+    // Reset
+    setRows([
+      {
+        id: Date.now(),
+        sno: 1,
+        item_id: null,
+        item_name: '',
+        itemOptions: [],
+        quantity: '',
+        amount: '',
+        invoice: '',
+        shop: null
+      }
+    ]);
+    setDate(null);
+    numRecordsRef.current.value = '';
+    setSubmitData(null);
+    setShowConfirmDialog(false);
+
+  } catch (error) {
+    console.error("Error submitting data:", error);
+    toast.error("Error submitting data");
+  } finally {
+    setLoading(false);
+  }
+};
+  
   useEffect(() => {
     const fetchSubcategories = async () => {
       try {
@@ -347,70 +444,6 @@
     }
 
 
-    const handleSubmit = async () => {
-  if (!date) {
-    toast.error("Please enter the date.");
-    return;
-  }
-  console.log(rows);
-  const invalidRows = rows.filter(row =>
-  !row.item_id || !row.quantity || !row.amount || !row.shop?.value  || !row.invoice
-);
-
-
-  if (invalidRows.length > 0) {
-    toast.error("Please fill in all the fields for each row.");
-    return;
-  }
-
-  const formattedDate = date.format('YYYY-MM-DD');
-  const locationId = parseInt(localStorage.getItem('locationid'), 10);
-
-  const updatedRows = rows.map(row => ({
-    item_id: row.item_id,
-    quantity: row.quantity,
-    amount: row.amount,
-    invoice: row.invoice,
-    shop_id: row.shop?.value 
-  }));
-
-  try {
-    setLoading(true);
-    console.log("Submitting data...", { date: formattedDate, arr: updatedRows });
-
-    const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/purchase/add`, {
-      date: formattedDate,
-      arr: updatedRows,
-      location: locationId
-    });
-
-    console.log("Response from server:", response.data);
-    toast.success("Items added successfully");
-
-    // Reset
-    setRows([
-      {
-        id: Date.now(),
-        sno: 1,
-        item_id: null,
-        item_name: '',
-        itemOptions: [],
-        quantity: '',
-        amount: '',
-        invoice: '',
-        shop: null
-      }
-    ]);
-    setDate(null);
-    numRecordsRef.current.value = '';
-
-  } catch (error) {
-    console.error("Error submitting data:", error);
-    toast.error("Error submitting data");
-  } finally {
-    setLoading(false);
-  }
-};
 
 
     return (
@@ -571,9 +604,26 @@
         </ItemTable>
         <SubmitContainer>
           <button className="add-button" onClick={handleAddOneRow}>Add One Row</button>
-          <SubmitButton onClick={handleSubmit} disabled={loading} >Submit</SubmitButton>
+          <SubmitButton onClick={handleValidateAndConfirm} disabled={loading} >Submit</SubmitButton>
         </SubmitContainer>
         <ToastContainer />
+        <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
+  <DialogTitle>Confirm Purchase</DialogTitle>
+  <DialogContent>
+    <DialogContentText>
+      Are you sure you want to submit the purchase for location  <strong>{selectedLocationName}</strong> on date <strong>{date?.format('YYYY-MM-DD')}</strong>?
+    </DialogContentText>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setShowConfirmDialog(false)} color="secondary">
+      Cancel
+    </Button>
+    <Button onClick={confirmSubmit} color="primary" variant="contained">
+      Confirm
+    </Button>
+  </DialogActions>
+</Dialog>
+
       </Container>
     );
   };

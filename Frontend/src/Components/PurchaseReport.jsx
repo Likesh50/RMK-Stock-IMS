@@ -187,15 +187,12 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
         <thead>
           <tr>
             <th style={{width:"70px"}}>SNO</th>
+            <th>Date</th>
             <th>Item Name</th>
             <th>Catrgory</th>
             <th>Quantity</th>
-            <th>Invoice</th>
             <th>Amount</th>
-            <th>Shop Address</th>
-            <th>Purchase</th>
-            <th>Manufacture</th>
-            <th>Expiry</th>
+            <th>Shop Name</th>
           </tr>
         </thead>
         <tbody>
