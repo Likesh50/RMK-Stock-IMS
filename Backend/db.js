@@ -6,7 +6,7 @@ const pool = mysql.createPool({
   password: 'pass123',
   database: 'inventory',
   waitForConnections: true,
-  connectionLimit: 10, // can scale as needed
+  connectionLimit: 10, 
   queueLimit: 0
 });
 

@@ -16,6 +16,14 @@ const Container = styled.div`
     text-align: center;
   }
 `;
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button
+} from '@mui/material';
 
 const FormContainer = styled.div`
   margin-bottom: 20px;
@@ -214,6 +222,26 @@ function Dispatch() {
   const [loading, setLoading] = useState(false);
   const [subcategories, setSubcategories] = useState([]);
   const [items, setItems] = useState([]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [locations, setLocations] = useState([]);
+  const [selectedId, setSelectedId] = useState(() => {
+    return localStorage.getItem('locationid') || '';
+  });
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem('userlocations');
+    if (stored) {
+      try {
+        setLocations(JSON.parse(stored));
+      } catch (err) {
+        console.error('Invalid JSON in sessionStorage for userlocations:', err);
+      }
+    }
+  }, []);
+
+  const selectedLocationName = locations.find(
+    loc => loc.location_id == selectedId
+  )?.location_name || '';
 
   useEffect(() => {
     const fetchSubcategories = async () => {
@@ -231,6 +259,11 @@ function Dispatch() {
     };
     fetchSubcategories();
   }, []);
+
+  useEffect(() => {
+  setShowConfirmDialog(true);
+}, []);
+
 
   const fetchItemsForSubcategory = async (subcategory, rowId) => {
   try {
@@ -462,6 +495,31 @@ const fetchAvailableStock = async (rowId, itemId) => {
         <SubmitButton onClick={handleSubmit}>Submit Dispatch</SubmitButton>
       </SubmitContainer>
       <ToastContainer />
+      <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
+        <DialogTitle>Confirm Dispatch</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to start entering dispatches for location 
+            <strong> {selectedLocationName} </strong>?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConfirmDialog(false)} color="secondary">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              setSelectedDate(dayjs());  // auto-sets today's date like in purchase
+              setShowConfirmDialog(false);
+            }}
+            color="primary"
+            variant="contained"
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Container>
   );
 }

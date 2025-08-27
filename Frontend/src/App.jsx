@@ -18,6 +18,8 @@ import EditPurchase from "./Components/EditPurchase.jsx";
 import EditDispatch from "./Components/EditDispatch.jsx";
 import ItemsTable from "./Components/ItemTable.jsx";
 import PrintPage from "./Components/PrintPage.jsx";
+import Blocks from "./Components/Blocks.jsx";
+import Shops from "./Components/Shops.jsx";
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -39,6 +41,8 @@ function App() {
           <Route path="/dashboard/*" element={<Layout />}>
             <Route index element={<Purchase/>} />
             <Route path="dispatch" element={<Dispatch />} />
+            <Route path="Blocks" element={<Blocks/>} />
+            <Route path="shops" element={<Shops/>} />
             <Route path="purchase" element={<Purchase/>} />
             <Route path="available" element={<AvailableStock />} />
             <Route path="editpurchase" element={<EditPurchase />} />

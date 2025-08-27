@@ -321,7 +321,11 @@ const confirmSubmit = async () => {
     setLoading(false);
   }
 };
-  
+
+  useEffect(() => {
+  setShowConfirmDialog(true);
+}, []);
+
   useEffect(() => {
     const fetchSubcategories = async () => {
       try {
@@ -607,18 +611,23 @@ const confirmSubmit = async () => {
           <SubmitButton onClick={handleValidateAndConfirm} disabled={loading} >Submit</SubmitButton>
         </SubmitContainer>
         <ToastContainer />
-        <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
+       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
   <DialogTitle>Confirm Purchase</DialogTitle>
   <DialogContent>
     <DialogContentText>
-      Are you sure you want to submit the purchase for location  <strong>{selectedLocationName}</strong> on date <strong>{date?.format('YYYY-MM-DD')}</strong>?
+      Are you sure you want to start entering purchases for location 
+      <strong> {selectedLocationName} </strong>?
     </DialogContentText>
   </DialogContent>
   <DialogActions>
     <Button onClick={() => setShowConfirmDialog(false)} color="secondary">
       Cancel
     </Button>
-    <Button onClick={confirmSubmit} color="primary" variant="contained">
+    <Button onClick={() => {
+      setDate(dayjs());  // set today's date automatically, optional
+      setShowConfirmDialog(false);
+    }} 
+      color="primary" variant="contained">
       Confirm
     </Button>
   </DialogActions>

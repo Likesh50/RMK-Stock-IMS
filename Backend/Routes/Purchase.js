@@ -23,7 +23,7 @@ router.get('/categories', async (req, res) => {
 router.get('/subcategories', async (req, res) => {
   try {
     const [rows] = await db.query(
-      'SELECT DISTINCT sub_category FROM items'
+      'SELECT DISTINCT sub_category FROM items order by sub_category'
     );
     res.status(200).json(rows);
   } catch (error) {

@@ -15,6 +15,7 @@
     const itemtoexpire=require("./Routes/expiry");
     const itemRoutes = require('./Routes/items');
     const shopRoutes= require("./Routes/shops");
+    const Blocks= require("./Routes/blocks");
     const db = require('./db');
 
     app.use(cors({
@@ -28,6 +29,7 @@
     app.use('/stocks',Stocks);
 
     app.use('/dispatch',Dispatch);
+    app.use('/blocks',Blocks);
     app.use('/addItems',addItems);
     app.use('/graph',graphItem);
     app.use('/report',Reports);
@@ -101,7 +103,9 @@
     }
   });
 
-
+app.get('/health', (req, res) => {
+  res.status(200).js-on({ status: 'OK', message: 'Server is running!' });
+});
 
     app.listen(3002,()=>{
       console.log("You r up!!!");

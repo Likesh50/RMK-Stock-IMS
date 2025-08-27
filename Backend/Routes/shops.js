@@ -1,75 +1,79 @@
-const express = require('express');
-const mysql = require("mysql2");
-const db = require('../db'); 
+const express = require("express");
+const db = require("../db"); // ✅ Import DB connection
 const router = express.Router();
 
-// CREATE a new shop
-router.post('/', async (req, res) => {
-  const { name, location } = req.body;
+// ✅ Get all shops (optionally filter by location_id if you later add relation)
+router.get("/", async (req, res) => {
   try {
-    const [result] = await db.query(
-      'INSERT INTO shops (name, location) VALUES (?, ?)',
-      [name, location]
-    );
-    res.status(201).json({ message: 'Shop created', id: result.insertId });
-  } catch (err) {
-    res.status(500).json({ message: 'Error creating shop', error: err });
-  }
-});
-
-// READ all shops
-router.get('/', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT * FROM shops');
+    const [rows] = await db.query("SELECT * FROM shops ORDER BY id ASC");
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching shops', error: err });
+    console.error("Error fetching shops:", err);
+    res.status(500).json({ error: "Failed to fetch shops" });
   }
 });
 
-// READ one shop by ID
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const [rows] = await db.query('SELECT * FROM shops WHERE id = ?', [id]);
-    if (rows.length === 0) {
-      return res.status(404).json({ message: 'Shop not found' });
-    }
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching shop', error: err });
-  }
-});
+// ✅ Add a new shop
+router.post("/", async (req, res) => {
+  const { name, address } = req.body;
 
-// UPDATE a shop
-router.put('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, location } = req.body;
+  if (!name || !address) {
+    return res.status(400).json({ error: "Name and address are required" });
+  }
+
   try {
     const [result] = await db.query(
-      'UPDATE shops SET name = ?, location = ? WHERE id = ?',
-      [name, location, id]
+      "INSERT INTO shops (name, location) VALUES (?, ?)",
+      [name, address]
     );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Shop not found' });
-    }
-    res.json({ message: 'Shop updated' });
+    res.status(201).json({ message: "Shop added", shop_id: result.insertId });
   } catch (err) {
-    res.status(500).json({ message: 'Error updating shop', error: err });
+    console.error("Error adding shop:", err);
+    res.status(500).json({ error: "Failed to add shop" });
   }
 });
 
-// DELETE a shop
-router.delete('/:id', async (req, res) => {
+// ✅ Update a shop
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
+  const { name, address } = req.body;
+
+  if (!name || !address) {
+    return res.status(400).json({ error: "Name and address are required" });
+  }
+
   try {
-    const [result] = await db.query('DELETE FROM shops WHERE id = ?', [id]);
+    const [result] = await db.query(
+      "UPDATE shops SET name = ?, location = ? WHERE id = ?",
+      [name, address, id]
+    );
+
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Shop not found' });
+      return res.status(404).json({ error: "Shop not found" });
     }
-    res.json({ message: 'Shop deleted' });
+
+    res.json({ message: "Shop updated" });
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting shop', error: err });
+    console.error("Error updating shop:", err);
+    res.status(500).json({ error: "Failed to update shop" });
+  }
+});
+
+// ✅ Delete a shop
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await db.query("DELETE FROM shops WHERE id = ?", [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Shop not found" });
+    }
+
+    res.json({ message: "Shop deleted" });
+  } catch (err) {
+    console.error("Error deleting shop:", err);
+    res.status(500).json({ error: "Failed to delete shop" });
   }
 });
 

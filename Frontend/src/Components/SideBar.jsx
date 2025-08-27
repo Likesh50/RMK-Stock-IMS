@@ -15,6 +15,8 @@ import Itemlist from "../assets/itemlist.png";
 import view from '../assets/view.png';
 import dashboard from '../assets/dashboard.png';
 import pen from '../assets/pen.png';
+import Blocks from '../assets/blocks.jpg';
+import Shops from '../assets/shop.png';
 const SidebarContainer = styled.div`
   background-color: white;
   min-height: 100vh; 
@@ -103,7 +105,18 @@ const SideBar = () => {
             Add Items
           </Link>
         </SidebarItem>)}
-
+        {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/blocks')}>
+          <Link to="blocks">
+            <img src={Blocks} width="40px" height="40px" alt="Add Items" />
+            Blocks
+          </Link>
+        </SidebarItem>)}
+        {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/shops')}>
+          <Link to="shops">
+            <img src={Shops} width="40px" height="40px" alt="Add Items" />
+            shops
+          </Link>
+        </SidebarItem>)}
         <SidebarItem className={isActive('/dashboard/ordertoplace')}>
           <Link to="ordertoplace">
             <img src={order} width="40px" height="40px" alt="Reports" />
