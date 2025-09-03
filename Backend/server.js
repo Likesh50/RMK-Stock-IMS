@@ -17,7 +17,7 @@
     const shopRoutes= require("./Routes/shops");
     const Blocks= require("./Routes/blocks");
     const db = require('./db');
-
+    const transfer=require("./Routes/transfer");
     app.use(cors({
       origin: '*',  // You can specify your frontend URL here instead of '*'
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -37,6 +37,7 @@
     app.use("/expiry",itemtoexpire);
     app.use('/items', itemRoutes);
     app.use('/shops', shopRoutes);
+    app.use("/transfer",transfer);
     const JWT_SECRET = 'rmkecmessmanagement-IT-2022-2026';
 
     app.post('/login', async (req, res) => {
@@ -61,7 +62,7 @@
           { expiresIn: '1h' }
         );
 
-        return res.json({ token, role: user.role, uname: user.uname,locations:user.location_ids });
+        return res.json({ token, role: user.role,id:user.id, uname: user.uname,locations:user.location_ids });
 
       } catch (err) {
         return res.status(500).json({ message: 'Server error', err });

@@ -35,66 +35,72 @@ router.get('/stockAvailability/:item_id/:location_id', async (req, res) => {
      * Create a new dispatch and update stock accordingly
      */
     router.post('/createDispatch', async (req, res) => {
-    const { arr, location_id } = req.body;
+  const { arr, location_id } = req.body;
 
-    if (!Array.isArray(arr) || arr.length === 0) {
-        return res.status(400).json({ error: 'Invalid or empty dispatch data' });
+  if (!Array.isArray(arr) || arr.length === 0) {
+    return res.status(400).json({ error: 'Invalid or empty dispatch data' });
+  }
+
+  try {
+    await db.query('START TRANSACTION');
+
+    for (const item of arr) {
+      const { item_id, quantity, receiver, incharge, dispatch_date, block_id, sticker_no } = item;
+      console.log(block_id+"JERE");
+      // Fetch current stock
+      const [stockRows] = await db.query(
+        'SELECT quantity FROM stock WHERE item_id = ? AND location_id = ? LIMIT 1',
+        [item_id, location_id]
+      );
+
+      if (stockRows.length === 0) {
+        throw new Error(`No stock found for item_id ${item_id}`);
+      }
+
+      const currentQty = stockRows[0].quantity;
+      const newQty = currentQty - quantity;
+
+      if (newQty < 0) {
+        throw new Error(`Insufficient stock for item_id ${item_id}`);
+      }
+
+      // Insert dispatch record (with new fields: block_id, sticker_no)
+      await db.query(
+        `INSERT INTO dispatch 
+          (item_id, quantity, receiver, incharge, dispatch_date, location_id, block_id, sticker_no) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [item_id, quantity, receiver, incharge, dispatch_date, location_id, block_id, sticker_no]
+      );
+
+      // Update or remove stock
+      if (newQty === 0) {
+        // optional: remove stock row if empty
+        // await db.query(
+        //   'DELETE FROM stock WHERE item_id = ? AND location_id = ?',
+        //   [item_id, location_id]
+        // );
+        await db.query(
+          'UPDATE stock SET quantity = 0 WHERE item_id = ? AND location_id = ?',
+          [item_id, location_id]
+        );
+      } else {
+        await db.query(
+          'UPDATE stock SET quantity = ? WHERE item_id = ? AND location_id = ?',
+          [newQty, item_id, location_id]
+        );
+      }
     }
 
-    try {
-        await db.query('START TRANSACTION');
+    await db.query('COMMIT');
+    res.json({ success: true, message: 'Dispatch created and stock updated successfully' });
 
-        for (const item of arr) {
-            const { item_id, quantity, location_info, receiver, incharge, dispatch_date } = item;
-
-            // Fetch current stock
-            const [stockRows] = await db.query(
-                'SELECT quantity FROM stock WHERE item_id = ? AND location_id = ? LIMIT 1',
-                [item_id, location_id]
-            );
-
-            if (stockRows.length === 0) {
-                throw new Error(`No stock found for item_id ${item_id}`);
-            }
-
-            const currentQty = stockRows[0].quantity;
-            const newQty = currentQty - quantity;
-
-            if (newQty < 0) {
-                throw new Error(`Insufficient stock for item_id ${item_id}`);
-            }
-
-            // Insert dispatch record — fixed: use `location_info`
-            await db.query(
-                `INSERT INTO dispatch (item_id, quantity, location_info, receiver, incharge, dispatch_date, location_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [item_id, quantity, location_info, receiver, incharge, dispatch_date, location_id]
-            );
-
-            if (newQty === 0) {
-                // Remove from stock if empty
-                // await db.query(
-                //     'DELETE FROM stock WHERE item_id = ? AND location_id = ?',
-                //     [item_id, location_id]
-                // );
-            } else {
-                // Update stock
-                await db.query(
-                    'UPDATE stock SET quantity = ? WHERE item_id = ? AND location_id = ?',
-                    [newQty, item_id, location_id]
-                );
-            }
-        }
-
-        await db.query('COMMIT');
-        res.json({ message: 'Dispatch created and stock updated successfully' });
-
-    } catch (error) {
-        await db.query('ROLLBACK');
-        console.error('Error in dispatch creation:', error.message);
-        res.status(500).json({ error: error.message || 'Internal Server Error' });
-    }
+  } catch (error) {
+    await db.query('ROLLBACK');
+    console.error('Error in dispatch creation:', error.message);
+    res.status(500).json({ error: error.message || 'Internal Server Error' });
+  }
 });
+
 
     /**
      * Retrieve dispatches by purchase_id

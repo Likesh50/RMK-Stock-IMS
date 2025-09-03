@@ -278,9 +278,8 @@ import {
 
   // Store submission data temporarily
   setSubmitData({ date: formattedDate, rows: updatedRows, location: locationId });
-
-  // Show confirmation dialog
-  setShowConfirmDialog(true);
+  confirmSubmit();
+ 
 };
 const confirmSubmit = async () => {
   if (!submitData) return;

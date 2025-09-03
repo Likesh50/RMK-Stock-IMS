@@ -16,6 +16,31 @@ const Container = styled.div`
   }
 `;
 
+const FilterContainer = styled.div`
+  display: flex;
+  justify-content: flex-start;
+  gap: 20px;
+  margin-bottom: 20px;
+
+  label {
+    font-size: 16px;
+    font-weight: bold;
+    color: #164863;
+  }
+
+  select {
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    min-width: 180px;
+    font-size: 14px;
+  }
+
+  @media print {
+    display: none; /* ✅ Hide dropdowns in print */
+  }
+`;
+
 const ItemTable = styled.table`
   width: 100%;
   border-collapse: collapse;
@@ -49,26 +74,6 @@ const ItemTable = styled.table`
   tbody tr:hover {
     background-color: #e0f7fa;
     color: #000;
-  }
-
-  td input {
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 4px;
-    font-size: 14px;
-    width: 90%;
-  }
-
-  td select {
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 4px;
-    font-size: 14px;
-    min-width: 180px;
-  }
-
-  .sno {
-    min-width: 50px;
   }
 
   @media print {
@@ -108,27 +113,43 @@ const PrintHeader = styled.div`
   }
 `;
 
-  const Footer = styled.footer`
-      text-align: center;
-      padding: 10px;
-      background-color: #164863;
-      color: white;
-      margin-top: 0px;
-      display: none;
-      @media print {
-      display: block;
-    }
-  `;
+const Footer = styled.footer`
+  text-align: center;
+  padding: 10px;
+  background-color: #164863;
+  color: white;
+  margin-top: 0px;
+  display: none;
+  @media print {
+    display: block;
+  }
+`;
 
 export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Dropdown state
+  const [selectedItem, setSelectedItem] = useState('');
+  const [selectedSubcategory, setSelectedSubcategory] = useState('');
+
+  // ✅ Pull locationid from localStorage
+  const [selectedId] = useState(() => {
+    return localStorage.getItem('locationid') || '';
+  });
+
   useEffect(() => {
+    if (!selectedId) {
+      console.warn("No locationid found in localStorage");
+      setLoading(false);
+      return;
+    }
+
     axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/purchaseReport`, {
       params: {
         startDate: fromDate,
-        endDate: toDate
+        endDate: toDate,
+        location_id: selectedId
       }
     })
     .then(res => {
@@ -139,7 +160,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       console.error("Error fetching report data:", err);
       setLoading(false);
     });
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, selectedId]);
 
   const formatNumber = (number) => {
     return Number(number).toFixed(2);
@@ -153,6 +174,18 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       year: 'numeric',
     });
   };
+
+  // ✅ Extract unique items and subcategories
+  const uniqueItems = [...new Set(data.map(row => row.item_name))];
+  const uniqueSubcategories = [...new Set(data.map(row => row.category))];
+
+  // ✅ Apply filtering
+  const filteredData = data.filter(row => {
+    return (
+      (selectedItem ? row.item_name === selectedItem : true) &&
+      (selectedSubcategory ? row.category === selectedSubcategory : true)
+    );
+  });
 
   if (loading) {
     return (
@@ -183,44 +216,70 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
         <h2>From: {formatDate(fromDate)}</h2>
         <h2>To: {formatDate(toDate)}</h2>
       </DateRange>
+
+      {/* ✅ Filters */}
+      <FilterContainer>
+        <div>
+          <label>Item: </label>
+          <select value={selectedItem} onChange={(e) => setSelectedItem(e.target.value)}>
+            <option value="">All</option>
+            {uniqueItems.map((item, i) => (
+              <option key={i} value={item}>{item}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>Subcategory: </label>
+          <select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)}>
+            <option value="">All</option>
+            {uniqueSubcategories.map((cat, i) => (
+              <option key={i} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+      </FilterContainer>
+
+      {/* ✅ Table */}
       <ItemTable>
         <thead>
           <tr>
-            <th style={{width:"70px"}}>SNO</th>
+            <th style={{ width: "70px" }}>SNO</th>
             <th>Date</th>
             <th>Item Name</th>
-            <th>Catrgory</th>
+            <th>Category</th>
             <th>Quantity</th>
+            {/* <th>Invoice No</th> */}
             <th>Amount</th>
             <th>Shop Name</th>
+            <th>Shop Location</th>
           </tr>
         </thead>
         <tbody>
-          {data.length > 0 ? (
-            data.map((row, index) => (
+          {filteredData.length > 0 ? (
+            filteredData.map((row, index) => (
               <tr key={index}>
                 <td>{index + 1}</td>
+                <td>{formatDate(row.purchase_date)}</td>
                 <td>{row.item_name}</td>
                 <td>{row.category}</td>
                 <td>{row.quantity}</td>
-                <td>{row.invoice_no}</td>
-                <td>{row.amount}</td>
-                <td>{row.shop_address}</td>
-                <td>{new Date(row.purchase_date).toLocaleDateString('en-GB')}</td>
-                <td>{new Date(row.manufacturing_date).toLocaleDateString('en-GB')}</td>
-                <td>{new Date(row.expiry_date).toLocaleDateString('en-GB')}</td>
+                {/* <td>{row.invoice_no}</td> */}
+                <td>{formatNumber(row.amount)}</td>
+                <td>{row.shop_name}</td>
+                <td>{row.shop_location}</td>
               </tr>
             ))
-            ) : (
+          ) : (
             <tr>
-              <td colSpan="10" style={{ textAlign: 'center' }}>
+              <td colSpan="9" style={{ textAlign: 'center' }}>
                 No data available
               </td>
             </tr>
           )}
         </tbody>
-
       </ItemTable>
+
       <Footer>
         Copyright © 2024. All rights reserved to DEPARTMENT of INFORMATION TECHNOLOGY - RMKEC
       </Footer>

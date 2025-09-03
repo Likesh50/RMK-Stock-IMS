@@ -2,11 +2,10 @@ const express = require('express');
 const db = require('../db'); // Assuming your database connection is set up in db.js
 const router = express.Router();
 
-// Route to fetch dispatch report between two dates
 router.get('/dispatchReport', async (req, res) => {
   try {
-    // Get the start and end dates from the query parameters
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, location_id, item_id, subcategory } = req.query;
+
     if (!startDate || !endDate) {
       return res.status(400).json({
         success: false,
@@ -14,35 +13,48 @@ router.get('/dispatchReport', async (req, res) => {
       });
     }
 
-    // Query to fetch dispatch data between the specified dates (inclusive)
-    const query = `
+    let query = `
       SELECT 
-    i.item_name,
-    i.category,
-    d.quantity,
-    d.dispatch_date,
-    d.location,
-    d.receiver,
-    d.incharge,
-    d.dispatch_time
-    
-    FROM 
+        i.item_name,
+        i.category,
+        i.sub_category,
+        d.quantity,
+        d.dispatch_date,
+        b.block_name,
+        d.receiver,
+        d.incharge,
+        d.sticker_no
+      FROM 
         dispatch d
-    JOIN 
-        purchases p ON d.purchase_id = p.purchase_id
-    JOIN 
-        items i ON p.item_id = i.item_id
-    WHERE 
+      JOIN 
+        items i ON d.item_id = i.item_id
+      LEFT JOIN 
+        blocks b ON d.block_id = b.block_id
+      WHERE 
         d.dispatch_date BETWEEN ? AND ?
-    ORDER BY 
-        d.dispatch_date ASC;
-
     `;
 
-    // Execute the query with the provided dates
-    const [rows] = await db.promise().query(query,[startDate,endDate]);
+    const params = [startDate, endDate];
 
-    // Send the data as a response
+    if (location_id) {
+      query += ` AND d.location_id = ?`;
+      params.push(location_id);
+    }
+
+    if (item_id) {
+      query += ` AND d.item_id = ?`;
+      params.push(item_id);
+    }
+
+    if (subcategory) {
+      query += ` AND i.sub_category = ?`;
+      params.push(subcategory);
+    }
+
+    query += ` ORDER BY d.dispatch_date ASC`;
+
+    const [rows] = await db.query(query, params);
+
     res.json({
       success: true,
       data: rows
@@ -55,48 +67,69 @@ router.get('/dispatchReport', async (req, res) => {
     });
   }
 });
+
+// 🛒 Purchase Report
 router.get('/purchaseReport', async (req, res) => {
-    try {
-      // Get the start and end dates from the query parameters
-      const { startDate, endDate } = req.query;
-  
-      // Query to fetch purchase data between the specified dates (inclusive)
-      const query = `
-        SELECT 
+  try {
+    const { startDate, endDate, location_id, item_id, subcategory } = req.query;
+
+    if (!startDate || !endDate || !location_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date, end date and location_id are required.'
+      });
+    }
+
+    let query = `
+      SELECT 
         i.item_name,
         i.category,
+        i.sub_category,
         p.quantity,
         p.invoice_no,
         p.amount,
-        p.shop_address,
+        s.name AS shop_name,
+        s.location AS shop_location,
         p.purchase_date,
-        p.manufacturing_date,
-        p.expiry_date
-        FROM 
-            purchases p
-        JOIN 
-            items i ON p.item_id = i.item_id
-        WHERE 
-            p.purchase_date BETWEEN ? AND ?
-        ORDER BY 
-            p.purchase_date ASC;
+        p.location_id
+      FROM 
+        purchases p
+      JOIN 
+        items i ON p.item_id = i.item_id
+      JOIN 
+        shops s ON p.shop_id = s.id
+      WHERE 
+        p.purchase_date BETWEEN ? AND ?
+        AND p.location_id = ?
+    `;
 
-      `;
-  
-      // Execute the query with the provided dates
-      const [rows] = await db.promise().query(query, [startDate, endDate]);
-  
-      // Send the data as a response
-      res.json({
-        success: true,
-        data: rows
-      });
-    } catch (error) {
-      console.error('Error fetching purchase report:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch purchase report'
-      });
+    const params = [startDate, endDate, location_id];
+
+    if (item_id) {
+      query += ` AND p.item_id = ?`;
+      params.push(item_id);
     }
-  });
+
+    if (subcategory) {
+      query += ` AND i.sub_category = ?`;
+      params.push(subcategory);
+    }
+
+    query += ` ORDER BY p.purchase_date ASC`;
+
+    const [rows] = await db.query(query, params);
+
+    res.json({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    console.error('Error fetching purchase report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch purchase report'
+    });
+  }
+});
+
 module.exports = router;

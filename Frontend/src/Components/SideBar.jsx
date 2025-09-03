@@ -17,6 +17,7 @@ import dashboard from '../assets/dashboard.png';
 import pen from '../assets/pen.png';
 import Blocks from '../assets/blocks.jpg';
 import Shops from '../assets/shop.png';
+import Transfer from '../assets/transfer.png';
 const SidebarContainer = styled.div`
   background-color: white;
   min-height: 100vh; 
@@ -83,8 +84,14 @@ const SideBar = () => {
         </SidebarItem>)}
         {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/dispatch')}>
           <Link to="./dispatch">
-            <img src={dispatch} width="60px" height="40px" alt="Dispatch" />
+            <img src={dispatch} width="60px" height="40px" alt="transfer" />
             Dispatch
+          </Link>
+        </SidebarItem>)}
+        {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/transfer')}>
+          <Link to="./transfer">
+            <img src={Transfer} width="60px" height="40px" alt="Dispatch" />
+            Transfer
           </Link>
         </SidebarItem>)}
         <SidebarItem className={isActive('/dashboard/available')}>

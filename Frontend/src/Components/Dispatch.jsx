@@ -9,6 +9,7 @@ import { Autocomplete, TextField } from '@mui/material';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import dayjs from 'dayjs';
+
 import { HashLoader } from 'react-spinners'; 
 const Container = styled.div`
   h1 {
@@ -222,12 +223,23 @@ function Dispatch() {
   const [loading, setLoading] = useState(false);
   const [subcategories, setSubcategories] = useState([]);
   const [items, setItems] = useState([]);
+  
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [locations, setLocations] = useState([]);
   const [selectedId, setSelectedId] = useState(() => {
     return localStorage.getItem('locationid') || '';
   });
+  const [blocks, setBlocks] = useState([]);
 
+useEffect(() => {
+  if (selectedId) {
+    axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/blocks`, {
+      params: { location_id: selectedId }
+    })
+    .then(res => setBlocks(res.data))
+    .catch(err => console.error("Error fetching blocks:", err));
+  }
+}, [selectedId]);
   useEffect(() => {
     const stored = sessionStorage.getItem('userlocations');
     if (stored) {
@@ -355,7 +367,7 @@ const fetchAvailableStock = async (rowId, itemId) => {
   const handleSubmit = async () => {
     const arr = rows.map(row => ({
       item_id: row.item,
-      location_info: row.location,
+      block_id: row.block_id,
       quantity: parseFloat(row.quantity),
       receiver: row.receiver,
       incharge: row.incharge,
@@ -407,9 +419,10 @@ const fetchAvailableStock = async (rowId, itemId) => {
             <th>Item</th>
             <th>Available</th>
             <th>Quantity</th>
-            <th>Location</th>
-            <th>Receiver</th>
+            <th>Block</th>
+            <th>Sticker No</th>
             <th>Incharge</th>
+            <th>Receiver</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -462,12 +475,32 @@ const fetchAvailableStock = async (rowId, itemId) => {
               />
             </td>
             <td>
+            <Autocomplete
+              options={blocks.map(b => ({ label: b.block_name, id: b.block_id }))}
+              value={
+                blocks.find(b => b.block_id === row.block_id)
+                  ? { label: blocks.find(b => b.block_id === row.block_id).block_name, id: row.block_id }
+                  : null
+              }
+              onChange={(e, newValue) => handleInputChange(row.id, 'block_id', newValue ? newValue.id : '')}
+              renderInput={(params) => <TextField {...params} label="Block" variant="outlined" size="small" />}
+              sx={{ width: 180 }}
+            />
+          </td>                       
+          <td>
+            <input
+              type="text"
+              value={row.sticker_no}
+              onChange={(e) => handleInputChange(row.id, 'sticker_no', e.target.value)}
+            />
+          </td>  
+            <td>
               <input
                 type="text"
-                value={row.location}
-                onChange={(e) => handleInputChange(row.id, 'location', e.target.value)}
+                value={row.incharge}
+                onChange={(e) => handleInputChange(row.id, 'incharge', e.target.value)}
                 disabled={availableStock[row.id]?.[0]?.quantity === undefined}
-              />
+              />   
             </td>
             <td>
               <input
@@ -477,15 +510,7 @@ const fetchAvailableStock = async (rowId, itemId) => {
                 disabled={availableStock[row.id]?.[0]?.quantity === undefined}
               />
             </td>
-            <td>
-              <input
-                type="text"
-                value={row.incharge}
-                onChange={(e) => handleInputChange(row.id, 'incharge', e.target.value)}
-                disabled={availableStock[row.id]?.[0]?.quantity === undefined}
-              />
-            </td>
-
+ 
               <td><DeleteButton onClick={() => handleDeleteRow(row.id)}>Delete</DeleteButton></td>
             </tr>
           ))}

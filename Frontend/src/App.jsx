@@ -20,6 +20,7 @@ import ItemsTable from "./Components/ItemTable.jsx";
 import PrintPage from "./Components/PrintPage.jsx";
 import Blocks from "./Components/Blocks.jsx";
 import Shops from "./Components/Shops.jsx";
+import Transfer from "./Components/Transfer.jsx";
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -43,6 +44,7 @@ function App() {
             <Route path="dispatch" element={<Dispatch />} />
             <Route path="Blocks" element={<Blocks/>} />
             <Route path="shops" element={<Shops/>} />
+             <Route path="transfer" element={<Transfer/>} />
             <Route path="purchase" element={<Purchase/>} />
             <Route path="available" element={<AvailableStock />} />
             <Route path="editpurchase" element={<EditPurchase />} />
