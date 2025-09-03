@@ -220,7 +220,8 @@ import {
       return localStorage.getItem('locationid') || '';
     });
     const [locations, setLocations] = useState([]);
-
+    const [invoice, setInvoice] = useState('');
+    const [shop, setShop] = useState(null);
     useEffect(() => {
       const stored = sessionStorage.getItem('userlocations');
       if (stored) {
@@ -250,37 +251,44 @@ import {
     //   fetchItems();
     // }, []);
 
-  const handleValidateAndConfirm = () => {
-  if (!date) {
-    toast.error("Please enter the date.");
-    return;
-  }
+ const handleValidateAndConfirm = () => {
+    if (!date) {
+      toast.error("Please enter the date.");
+      return;
+    }
+    if (!invoice) {
+      toast.error("Please enter the invoice.");
+      return;
+    }
+    if (!shop) {
+      toast.error("Please select the shop.");
+      return;
+    }
 
-  const invalidRows = rows.filter(row =>
-    !row.item_id || !row.quantity || !row.amount || !row.shop?.value || !row.invoice
-  );
+    const invalidRows = rows.filter(row =>
+      !row.item_id || !row.quantity || !row.amount
+    );
 
-  if (invalidRows.length > 0) {
-    toast.error("Please fill in all the fields for each row.");
-    return;
-  }
+    if (invalidRows.length > 0) {
+      toast.error("Please fill in all the fields for each row.");
+      return;
+    }
 
-  const formattedDate = date.format('YYYY-MM-DD');
-  const locationId = parseInt(localStorage.getItem('locationid'), 10);
+    const formattedDate = date.format('YYYY-MM-DD');
+    const locationId = parseInt(localStorage.getItem('locationid'), 10);
 
-  const updatedRows = rows.map(row => ({
-    item_id: row.item_id,
-    quantity: row.quantity,
-    amount: row.amount,
-    invoice: row.invoice,
-    shop_id: row.shop?.value
-  }));
+    const updatedRows = rows.map(row => ({
+      item_id: row.item_id,
+      quantity: row.quantity,
+      amount: row.amount,
+      invoice: invoice,
+      shop_id: shop.value
+    }));
 
-  // Store submission data temporarily
-  setSubmitData({ date: formattedDate, rows: updatedRows, location: locationId });
-  confirmSubmit();
- 
-};
+    setSubmitData({ date: formattedDate, rows: updatedRows, location: locationId });
+    confirmSubmit();
+  };
+
 const confirmSubmit = async () => {
   if (!submitData) return;
 
@@ -449,65 +457,89 @@ const confirmSubmit = async () => {
 
 
 
-    return (
-      <Container>
-        <h1>PURCHASE</h1>
-        <FormContainer>
-                {loading && (
-            <div style={{
-              position: 'fixed',
-              top: '0',
-              left: '0',
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: 'rgba(255, 255, 255, 0.7)',
-            }}>
-              <HashLoader color="#164863" loading={loading} size={90} />
-            </div>
-          )}
+      return (
+    <Container>
+      <h1>PURCHASE</h1>
+      <FormContainer>
+        {loading && (
+          <div style={{
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          }}>
+            <HashLoader color="#164863" loading={loading} size={90} />
+          </div>
+        )}
 
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <DemoContainer components={['DatePicker']}>
-              <DatePicker label="" className="date-picker" shouldDisableDate={(date) => date.isAfter(dayjs())} onChange={(newDate) => setDate(newDate)}
-                value={date}
-                format="YYYY-MM-DD" />
-            </DemoContainer>
-          </LocalizationProvider>
-          <Records>
-            <InputNumber
-              type='number'
-              id='num-records'
-              placeholder='No of rows to be added'
-              ref={numRecordsRef}
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <DemoContainer components={['DatePicker']}>
+            <DatePicker
+              label=""
+              className="date-picker"
+              shouldDisableDate={(date) => date.isAfter(dayjs())}
+              onChange={(newDate) => setDate(newDate)}
+              value={date}
+              format="YYYY-MM-DD"
             />
-          </Records>
-          <AddButton onClick={handleAddRows}>Add</AddButton>
-        </FormContainer>
-        <ItemTable>
-          <thead>
-            <tr>
-              <th>SNo</th>
-              <th>Category</th>
-              <th>Item</th>
-              <th>Quantity</th>
-              {/* <th>Manufacture</th>
-              <th>Use Before</th> */}
-              <th>Invoice</th>
-              <th>Rate</th>
-              <th>Shop Name</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr key={row.id}>
-                <td className="sno">{row.sno}</td>
+          </DemoContainer>
+        </LocalizationProvider>
 
+        <TextField
+          label="Invoice"
+          variant="outlined"
+          size="small"
+          value={invoice}
+          onChange={(e) => setInvoice(e.target.value)}
+          sx={{ width: 180, marginLeft: 2 }}
+        />
 
-            <td>
+        <Autocomplete
+          options={shopAddresses}
+          getOptionLabel={(option) => option?.label || ''}
+          value={shop}
+          onChange={(_, newValue) => setShop(newValue)}
+          renderInput={(params) => (
+            <TextField {...params} label="Shop Name" variant="outlined" size="small" />
+          )}
+          sx={{ width: 180, marginLeft: 2 }}
+        />
+
+        <Records>
+          <InputNumber
+            type='number'
+            id='num-records'
+            placeholder='No of rows to be added'
+            ref={numRecordsRef}
+          />
+        </Records>
+        <AddButton onClick={handleAddRows}>Add</AddButton>
+      </FormContainer>
+
+      <ItemTable>
+        <thead>
+          <tr>
+            <th>SNo</th>
+            <th>Category</th>
+            <th>Item</th>
+            <th>Quantity</th>
+            {/* <th>Manufacture</th>
+            <th>Use Before</th> */}
+            <th>Rate</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={row.id}>
+              <td className="sno">{row.sno}</td>
+
+              <td>
                 <Autocomplete
                   freeSolo
                   options={subcategories}
@@ -556,84 +588,62 @@ const confirmSubmit = async () => {
                 />
               </td>
 
-                <td>
-                  <input
-                    type="number"
-                    value={row.quantity}
-                    onChange={(e) => handleInputChange(row.id, 'quantity', e.target.value)}
-                    required
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={row.invoice}
-                    onChange={(e) => handleInputChange(row.id, 'invoice', e.target.value)
-                    }
-                    required
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    value={row.amount}
-                    onChange={(e) => handleInputChange(row.id, 'amount', e.target.value)
-                    }
-                    required
-                  />
-                </td>
-                <td>
-                  <Autocomplete
-                      options={shopAddresses}
-                      getOptionLabel={(option) => option?.label || ''}
-                      value={row.shop || null}
-                      onChange={(_, newValue) => handleInputChange(row.id, 'shop', newValue)}
-                      renderInput={(params) => (
-                        <TextField {...params} label="Shop Name" variant="outlined" size="small" />
-                      )}
-                      sx={{ width: 180 }}
-                    />
+              <td>
+                <input
+                  type="number"
+                  value={row.quantity}
+                  onChange={(e) => handleInputChange(row.id, 'quantity', e.target.value)}
+                  required
+                />
+              </td>
 
+              <td>
+                <input
+                  type="number"
+                  value={row.amount}
+                  onChange={(e) => handleInputChange(row.id, 'amount', e.target.value)}
+                  required
+                />
+              </td>
 
-                </td>
-
-                
-                <td>
+              <td>
                 <DeleteButton onClick={() => handleDeleteRow(row.id)}>Delete</DeleteButton>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </ItemTable>
-        <SubmitContainer>
-          <button className="add-button" onClick={handleAddOneRow}>Add One Row</button>
-          <SubmitButton onClick={handleValidateAndConfirm} disabled={loading} >Submit</SubmitButton>
-        </SubmitContainer>
-        <ToastContainer />
-       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
-  <DialogTitle>Confirm Purchase</DialogTitle>
-  <DialogContent>
-    <DialogContentText>
-      Are you sure you want to start entering purchases for location 
-      <strong> {selectedLocationName} </strong>?
-    </DialogContentText>
-  </DialogContent>
-  <DialogActions>
-    <Button onClick={() => setShowConfirmDialog(false)} color="secondary">
-      Cancel
-    </Button>
-    <Button onClick={() => {
-      setDate(dayjs());  // set today's date automatically, optional
-      setShowConfirmDialog(false);
-    }} 
-      color="primary" variant="contained">
-      Confirm
-    </Button>
-  </DialogActions>
-</Dialog>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </ItemTable>
 
-      </Container>
-    );
+      <SubmitContainer>
+        <button className="add-button" onClick={handleAddOneRow}>Add One Row</button>
+        <SubmitButton onClick={handleValidateAndConfirm} disabled={loading}>Submit</SubmitButton>
+      </SubmitContainer>
+
+      <ToastContainer />
+
+      <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
+        <DialogTitle>Confirm Purchase</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to start entering purchases for location
+            <strong> {selectedLocationName} </strong>?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowConfirmDialog(false)} color="secondary">
+            Cancel
+          </Button>
+          <Button onClick={() => {
+            setDate(dayjs());  // set today's date automatically, optional
+            setShowConfirmDialog(false);
+          }}
+            color="primary" variant="contained">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
   };
 
   export default Purchase;

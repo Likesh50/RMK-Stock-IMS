@@ -223,12 +223,13 @@ function Dispatch() {
   const [loading, setLoading] = useState(false);
   const [subcategories, setSubcategories] = useState([]);
   const [items, setItems] = useState([]);
-  
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [locations, setLocations] = useState([]);
   const [selectedId, setSelectedId] = useState(() => {
     return localStorage.getItem('locationid') || '';
   });
+    const [incharge, setIncharge] = useState('');
+  const [receiver, setReceiver] = useState('');
   const [blocks, setBlocks] = useState([]);
 
 useEffect(() => {
@@ -329,33 +330,27 @@ const fetchAvailableStock = async (rowId, itemId) => {
 
   const handleInputChange = async (id, field, value) => {
     if (field === 'category') {
-  fetchItemsForSubcategory(value, id);
-  setRows(prevRows => prevRows.map(row =>
-    row.id === id ? {
-      ...row, category: value, item: '', quantity: '', location: '', receiver: '', incharge: '', selectedPurchaseId: '', availableForBatch: 0
-    } : row
-  ));
-  return;
-}
-
+      fetchItemsForSubcategory(value, id);
+      setRows(prevRows => prevRows.map(row =>
+        row.id === id ? {
+          ...row, category: value, item: '', quantity: '', location: '', selectedPurchaseId: '', availableForBatch: 0
+        } : row
+      ));
+      return;
+    }
 
     if (field === 'item') {
-  console.log('Item selected:', id, value);
+      setRows(prevRows => prevRows.map(row =>
+        row.id === id ? { ...row, item: value, quantity: '' } : row
+      ));
+      if (value) {
+        await fetchAvailableStock(id, value);
+      }
+      return;
+    }
 
-  setRows(prevRows => prevRows.map(row =>
-    row.id === id ? {
-      ...row, item: value, quantity: ''
-    } : row
-  ));
-
-  // Fetch available stock after setting item
-  if (value) {
-    await fetchAvailableStock(id, value);
-  }
-  return;
-}
-
-    setRows(prevRows => 
+    // For other fields except incharge and receiver (which are now top-level)
+    setRows(prevRows =>
       prevRows.map(row => (row.id === id ? { ...row, [field]: value } : row))
     );
   };
@@ -364,26 +359,42 @@ const fetchAvailableStock = async (rowId, itemId) => {
     setRows(prevRows => prevRows.filter(row => row.id !== id));
   };
 
-  const handleSubmit = async () => {
+   const handleSubmit = async () => {
+    if (!incharge.trim()) {
+      toast.error("Please enter Incharge.");
+      return;
+    }
+    if (!receiver.trim()) {
+      toast.error("Please enter Receiver.");
+      return;
+    }
+    if (!selectedDate) {
+      toast.error("Please select a date.");
+      return;
+    }
+
     const arr = rows.map(row => ({
       item_id: row.item,
       block_id: row.block_id,
       quantity: parseFloat(row.quantity),
-      receiver: row.receiver,
-      incharge: row.incharge,
-      dispatch_date: selectedDate ? selectedDate.format('YYYY-MM-DD') : ''
+      receiver: receiver,
+      incharge: incharge,
+      sticker_no: row.sticker_no,
+      dispatch_date: selectedDate.format('YYYY-MM-DD')
     }));
 
     try {
       setLoading(true);
-      const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/createDispatch`, {
+      await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/dispatch/createDispatch`, {
         arr,
         location_id: parseInt(window.localStorage.getItem('locationid'), 10)
       });
 
       toast.success("Items dispatched successfully");
-      setRows([{ id: Date.now(), category: '', item: '', quantity: '', location: '', receiver: '', incharge: '', selectedPurchaseId: '', availableForBatch: 0 }]);
+      setRows([{ id: Date.now(), category: '', item: '', quantity: '', location: '', selectedPurchaseId: '', availableForBatch: 0 }]);
       setSelectedDate(null);
+      setIncharge('');
+      setReceiver('');
     } catch (error) {
       console.error("Error dispatching items:", error);
       toast.error("Error dispatching items. Please try again.");
@@ -392,11 +403,13 @@ const fetchAvailableStock = async (rowId, itemId) => {
     }
   };
 
-  return (
+ return (
     <Container>
       {loading && (
         <div style={{
-          position: 'fixed', top: '0', left: '0', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.7)'
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)'
         }}>
           <HashLoader color="#164863" loading={loading} size={90} />
         </div>
@@ -404,13 +417,38 @@ const fetchAvailableStock = async (rowId, itemId) => {
       <h1>DISPATCH</h1>
       <FormContainer>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DatePicker label="Select date" value={selectedDate} onChange={setSelectedDate} shouldDisableDate={(date) => date.isAfter(dayjs())}/>
+          <DatePicker
+            label="Select date"
+            value={selectedDate}
+            onChange={setSelectedDate}
+            shouldDisableDate={(date) => date.isAfter(dayjs())}
+          />
         </LocalizationProvider>
+
+        <TextField
+          label="Incharge"
+          variant="outlined"
+          size="small"
+          value={incharge}
+          onChange={(e) => setIncharge(e.target.value)}
+          sx={{ width: 180, marginLeft: 2 }}
+        />
+
+        <TextField
+          label="Receiver"
+          variant="outlined"
+          size="small"
+          value={receiver}
+          onChange={(e) => setReceiver(e.target.value)}
+          sx={{ width: 180, marginLeft: 2 }}
+        />
+
         <Records>
           <InputNumber type='number' placeholder='No of rows to be added' ref={numRecordsRef} />
         </Records>
         <AddButton onClick={handleAddRows}>Add</AddButton>
       </FormContainer>
+
       <ItemTable>
         <thead>
           <tr>
@@ -421,8 +459,7 @@ const fetchAvailableStock = async (rowId, itemId) => {
             <th>Quantity</th>
             <th>Block</th>
             <th>Sticker No</th>
-            <th>Incharge</th>
-            <th>Receiver</th>
+            {/* Removed Incharge and Receiver columns */}
             <th>Actions</th>
           </tr>
         </thead>
@@ -441,90 +478,73 @@ const fetchAvailableStock = async (rowId, itemId) => {
                 />
               </td>
               <td>
-               <Autocomplete
-                options={(itemsByRowId[row.id] || [])
-                  .filter(i => !rows.some(r => r.id !== row.id && r.item === i.item_id))
-                  .map(i => ({ label: i.item_name, id: i.item_id }))}
-                value={
-                  itemsByRowId[row.id]?.find(i => i.item_id === row.item)
-                    ? {
-                        label: itemsByRowId[row.id].find(i => i.item_id === row.item).item_name,
-                        id: row.item
-                      }
-                    : null
-                }
-                onChange={(e, newValue) => handleInputChange(row.id, 'item', newValue ? newValue.id : '')}
-                renderInput={(params) => <TextField {...params} label="Item" variant="outlined" size="small" />}
-                sx={{ width: 180 }}
-                disabled={!row.category}
-              />
-
-
+                <Autocomplete
+                  options={(itemsByRowId[row.id] || [])
+                    .filter(i => !rows.some(r => r.id !== row.id && r.item === i.item_id))
+                    .map(i => ({ label: i.item_name, id: i.item_id }))}
+                  value={
+                    itemsByRowId[row.id]?.find(i => i.item_id === row.item)
+                      ? {
+                          label: itemsByRowId[row.id].find(i => i.item_id === row.item).item_name,
+                          id: row.item
+                        }
+                      : null
+                  }
+                  onChange={(e, newValue) => handleInputChange(row.id, 'item', newValue ? newValue.id : '')}
+                  renderInput={(params) => <TextField {...params} label="Item" variant="outlined" size="small" />}
+                  sx={{ width: 180 }}
+                  disabled={!row.category}
+                />
+              </td>
+              <td>{availableStock[row.id]?.[0]?.quantity ?? 'N/A'}</td>
+              <td>
+                <input
+                  type="number"
+                  value={row.quantity}
+                  onChange={(e) => handleInputChange(row.id, 'quantity', e.target.value)}
+                  min={0}
+                  disabled={availableStock[row.id]?.[0]?.quantity === undefined}
+                />
               </td>
               <td>
-                {availableStock[row.id]?.[0]?.quantity ?? 'N/A'}
+                <Autocomplete
+                  options={blocks.map(b => ({ label: b.block_name, id: b.block_id }))}
+                  value={
+                    blocks.find(b => b.block_id === row.block_id)
+                      ? { label: blocks.find(b => b.block_id === row.block_id).block_name, id: row.block_id }
+                      : null
+                  }
+                  onChange={(e, newValue) => handleInputChange(row.id, 'block_id', newValue ? newValue.id : '')}
+                  renderInput={(params) => <TextField {...params} label="Block" variant="outlined" size="small" />}
+                  sx={{ width: 180 }}
+                />
               </td>
-
-             <td>
-              <input
-                type="number"
-                value={row.quantity}
-                onChange={(e) => handleInputChange(row.id, 'quantity', e.target.value)}
-                min={0}
-                disabled={availableStock[row.id]?.[0]?.quantity === undefined}
-              />
-            </td>
-            <td>
-            <Autocomplete
-              options={blocks.map(b => ({ label: b.block_name, id: b.block_id }))}
-              value={
-                blocks.find(b => b.block_id === row.block_id)
-                  ? { label: blocks.find(b => b.block_id === row.block_id).block_name, id: row.block_id }
-                  : null
-              }
-              onChange={(e, newValue) => handleInputChange(row.id, 'block_id', newValue ? newValue.id : '')}
-              renderInput={(params) => <TextField {...params} label="Block" variant="outlined" size="small" />}
-              sx={{ width: 180 }}
-            />
-          </td>                       
-          <td>
-            <input
-              type="text"
-              value={row.sticker_no}
-              onChange={(e) => handleInputChange(row.id, 'sticker_no', e.target.value)}
-            />
-          </td>  
-            <td>
-              <input
-                type="text"
-                value={row.incharge}
-                onChange={(e) => handleInputChange(row.id, 'incharge', e.target.value)}
-                disabled={availableStock[row.id]?.[0]?.quantity === undefined}
-              />   
-            </td>
-            <td>
-              <input
-                type="text"
-                value={row.receiver}
-                onChange={(e) => handleInputChange(row.id, 'receiver', e.target.value)}
-                disabled={availableStock[row.id]?.[0]?.quantity === undefined}
-              />
-            </td>
- 
-              <td><DeleteButton onClick={() => handleDeleteRow(row.id)}>Delete</DeleteButton></td>
+              <td>
+                <input
+                  type="text"
+                  value={row.sticker_no}
+                  onChange={(e) => handleInputChange(row.id, 'sticker_no', e.target.value)}
+                />
+              </td>
+              <td>
+                <DeleteButton onClick={() => handleDeleteRow(row.id)}>Delete</DeleteButton>
+              </td>
             </tr>
           ))}
         </tbody>
       </ItemTable>
+
       <SubmitContainer>
         <SubmitButton onClick={handleSubmit}>Submit Dispatch</SubmitButton>
       </SubmitContainer>
+
       <ToastContainer />
+
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
         <DialogTitle>Confirm Dispatch</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to start entering dispatches for location 
+            Are you sure you want to start entering dispatches for location
             <strong> {selectedLocationName} </strong>?
           </DialogContentText>
         </DialogContent>
@@ -534,7 +554,7 @@ const fetchAvailableStock = async (rowId, itemId) => {
           </Button>
           <Button
             onClick={() => {
-              setSelectedDate(dayjs());  // auto-sets today's date like in purchase
+              setSelectedDate(dayjs());
               setShowConfirmDialog(false);
             }}
             color="primary"
@@ -544,9 +564,9 @@ const fetchAvailableStock = async (rowId, itemId) => {
           </Button>
         </DialogActions>
       </Dialog>
-
     </Container>
   );
+
 }
 
 

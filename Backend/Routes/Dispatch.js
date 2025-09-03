@@ -46,6 +46,7 @@ router.get('/stockAvailability/:item_id/:location_id', async (req, res) => {
 
     for (const item of arr) {
       const { item_id, quantity, receiver, incharge, dispatch_date, block_id, sticker_no } = item;
+      console.log(sticker_no);
       console.log(block_id+"JERE");
       // Fetch current stock
       const [stockRows] = await db.query(

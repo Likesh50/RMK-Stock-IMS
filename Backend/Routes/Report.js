@@ -21,6 +21,7 @@ router.get('/dispatchReport', async (req, res) => {
         d.quantity,
         d.dispatch_date,
         b.block_name,
+        d.sticker_no,
         d.receiver,
         d.incharge,
         d.sticker_no

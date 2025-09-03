@@ -247,6 +247,7 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
             <th>Category</th>
             <th>Quantity</th>
             <th>Block Name</th>
+            <th>Sticker No</th>
             <th>Receiver</th>
             <th>Incharge</th>
           </tr>
@@ -261,6 +262,7 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
                 <td>{row.category}</td>
                 <td>{row.quantity}</td>
                 <td>{row.block_name}</td>
+                <td>{row.sticker_no}</td>
                 <td>{row.receiver}</td>
                 <td>{row.incharge}</td>
               </tr>
