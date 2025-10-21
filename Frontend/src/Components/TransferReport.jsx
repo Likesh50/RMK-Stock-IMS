@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import Axios from 'axios';
+import axios from 'axios';
 import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
 
@@ -8,12 +8,10 @@ const Container = styled.div`
   @media print {
     margin: 20px;
   }
-
   h1 {
     color: #164863;
     text-align: center;
   }
-  height: 100%;
 `;
 
 const FilterContainer = styled.div`
@@ -21,13 +19,11 @@ const FilterContainer = styled.div`
   justify-content: flex-start;
   gap: 20px;
   margin-bottom: 20px;
-
   label {
     font-size: 16px;
     font-weight: bold;
     color: #164863;
   }
-
   select {
     padding: 6px;
     border-radius: 4px;
@@ -35,9 +31,8 @@ const FilterContainer = styled.div`
     min-width: 180px;
     font-size: 14px;
   }
-
   @media print {
-    display: none; /* ✅ Hide filters when printing */
+    display: none;
   }
 `;
 
@@ -46,7 +41,6 @@ const ItemTable = styled.table`
   border-collapse: collapse;
   font-family: Arial, sans-serif;
   table-layout: fixed;
-
   th, td {
     border: 1px solid #ddd;
     padding: 10px;
@@ -55,30 +49,25 @@ const ItemTable = styled.table`
     word-break: break-word;
     font-size: 18px;
   }
-
   th {
     background-color: #164863;
     color: white;
     font-size: 15px;
     font-weight: bold;
   }
-
   tbody tr {
     background-color: #f9f9f9;
   }
-
   tbody tr:nth-child(even) {
     background-color: #f1f1f1;
   }
-
   tbody tr:hover {
     background-color: #e0f7fa;
     color: #000;
   }
-
   @media print {
     th, td {
-      font-size: 7px; 
+      font-size: 11px;
     }
   }
 `;
@@ -87,7 +76,6 @@ const DateRange = styled.div`
   display: flex;
   justify-content: space-between;
   margin-bottom: 20px;
-
   h2 {
     margin: 0;
     font-size: 20px;
@@ -98,17 +86,14 @@ const PrintHeader = styled.div`
   display: none;
   text-align: center;
   margin-bottom: 20px;
-
   img {
     width: 150px;
     height: auto;
     margin-bottom: 10px;
   }
-
   h1 {
     font-size: 30px;
   }
-
   @media print {
     display: block;
   }
@@ -126,7 +111,6 @@ const Footer = styled.footer`
   }
 `;
 
-// Institution name mapping
 const institutionMap = {
   RMKEC: "R.M.K. Engineering College",
   RMD: "R.M.D. Engineering College",
@@ -135,45 +119,47 @@ const institutionMap = {
   "RMK Patashala": "R.M.K. Patashala"
 };
 
-export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
+export const TransferReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // ✅ Filters
+  // Filters
   const [selectedItem, setSelectedItem] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-
-  // ✅ get locationid from localStorage
-  const [selectedId] = useState(() => {
-    return localStorage.getItem('locationid') || '';
-  });
+  const [selectedSubcategory, setSelectedSubcategory] = useState('');
+  const [selectedFromLocation] = useState(() => localStorage.getItem('locationid') || '');
 
   useEffect(() => {
-    if (!selectedId) {
-      console.warn("No locationid found in localStorage");
+    if (!fromDate || !toDate) {
       setLoading(false);
+      setData([]);
       return;
     }
+    setLoading(true);
 
-    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/dispatchReport`, {
+    axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/transferReport`, {
       params: {
-        startDate: fromDate,
+        startDate: fromDate, 
         endDate: toDate,
-        location_id: selectedId   // ✅ pass location_id
-      }
+        from_location_id: selectedFromLocation,
+        item_id: selectedItem,
+        category: selectedSubcategory
+      }    
     })
     .then(res => {
-      setData(res.data.data || []); 
+      const resp = res.data;
+      const rows = Array.isArray(resp.data) ? resp.data : [];
+      setData(rows);
       setLoading(false);
     })
-    .catch(err => {
-      console.error("Error fetching report data:", err);
+    .catch(() => {
+      setData([]);
       setLoading(false);
     });
-  }, [fromDate, toDate, selectedId]);
+  }, [fromDate, toDate, selectedItem, selectedSubcategory, selectedFromLocation]);
 
   const formatDate = (dateString) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
+    if (isNaN(date)) return dateString;
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
@@ -181,24 +167,11 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     });
   };
 
-  // Institution name from localStorage
+  const uniqueItems = [...new Set(data.map(row => row.item_name))];
+  const uniqueSubcategories = [...new Set(data.map(row => row.category))];
+
   const institutionCode = localStorage.getItem('locationname') || "";
   const institutionName = institutionMap[institutionCode] || institutionCode;
-
-  // Extract unique values for dropdowns
-  const uniqueItems = [...new Set(data.map(row => row.item_name))];
-  const uniqueCategories = [...new Set(data.map(row => row.category))];
-
-  // Apply filter
-  const filteredData = data.filter(row => {
-    return (
-      (selectedItem ? row.item_name === selectedItem : true) &&
-      (selectedCategory ? row.category === selectedCategory : true)
-    );
-  });
-
-  // Compute grand total quantity of dispatched items
-  const grandTotalQuantity = filteredData.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
 
   if (loading) {
     return (
@@ -211,37 +184,36 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+        backgroundColor: 'rgba(255,255,255,0.7)'
       }}>
         <HashLoader color="#164863" loading={loading} size={90} />
       </div>
     );
   }
 
-  rreturn (
-      <Container ref={ref} className="print-container">
-        <PrintHeader>
-          <img src={Logo} alt="Logo" />
-          <h1>INVENTORY MANAGEMENT SYSTEM</h1>
-        </PrintHeader>
-        <div style={{ textAlign: 'center' }}>
-            <h1 style={{ leftmargin: 0 }}>Dispatch Report</h1>
-          </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ textAlign: 'left', fontWeight: 'bold' }}>
-            NAME OF THE INSTITUTION : <span style={{ fontWeight: 400 }}>{institutionName}</span>
-          </div>
-          <div style={{ textAlign: 'right', fontWeight: 'bold' }}>
-            DATE : <span style={{ fontWeight: 400 }}>{formatDate(new Date().toISOString())}</span>
-          </div>
+  return (
+    <Container ref={ref} className="print-container">
+      <PrintHeader>
+        <img src={Logo} alt="Logo" />
+        <h1>INVENTORY MANAGEMENT SYSTEM</h1>
+      </PrintHeader>
+      <div style={{ textAlign: 'center' }}>
+          <h1 style={{ leftmargin: 0 }}>Stock Transfer</h1>
         </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ textAlign: 'left', fontWeight: 'bold' }}>
+          NAME OF THE INSTITUTION : <span style={{ fontWeight: 400 }}>{institutionName}</span>
+        </div>
+        <div style={{ textAlign: 'right', fontWeight: 'bold' }}>
+          DATE : <span style={{ fontWeight: 400 }}>{formatDate(new Date().toISOString())}</span>
+        </div>
+      </div>
 
+      {/* From / To */}
       <DateRange>
         <h2>From: {formatDate(fromDate)}</h2>
         <h2>To: {formatDate(toDate)}</h2>
       </DateRange>
-
-      {/* Dropdown filters */}
       <FilterContainer>
         <div>
           <label>Item: </label>
@@ -253,61 +225,56 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
           </select>
         </div>
         <div>
-          <label>Category: </label>
-          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+          <label>Subcategory: </label>
+          <select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)}>
             <option value="">All</option>
-            {uniqueCategories.map((cat, i) => (
+            {uniqueSubcategories.map((cat, i) => (
               <option key={i} value={cat}>{cat}</option>
             ))}
-          </select>
+          </select> 
         </div>
       </FilterContainer>
-
       <ItemTable>
         <thead>
           <tr>
-            <th style={{width:"70px"}}>SNO</th>
-            <th>Dispatch Date</th>
-            <th>Item Name</th>
-            <th>Category</th>
-            <th>Quantity</th>
-            <th>Block Name</th>
-            <th>Sticker No</th>
-            <th>Receiver</th>
-            <th>Incharge</th>
+            <th style={{ width: "65px" }}>SL.NO</th>
+            <th style={{ width: "130px" }}>DATE</th>
+            <th>ITEM NAME</th>
+            <th>CATEGORY</th>
+            <th>RECEIVED FROM</th>
+            <th style={{ width: "80px" }}>QTY</th>
+            <th>ISSUED TO</th>
+            <th style={{ width: "80px" }}>QTY</th>
           </tr>
         </thead>
         <tbody>
-          {filteredData.length > 0 ? (
-            filteredData.map((row, index) => (
+          {data.length > 0 ? (
+            data.map((row, index) => (
               <tr key={index}>
-                <td>{index+1}</td>
-                <td>{formatDate(row.dispatch_date)}</td>
+                <td>{index + 1}</td>
+                <td>{formatDate(row.transfer_date)}</td>
                 <td>{row.item_name}</td>
                 <td>{row.category}</td>
-                <td>{row.quantity}</td>
-                <td>{row.block_name}</td>
-                <td>{row.sticker_no}</td>
-                <td>{row.receiver}</td>
-                <td>{row.incharge}</td>
+                <td>{row.received_fr}</td>
+                <td>{row.qty_received}</td>
+                <td>{row.issued_to}</td>
+                <td>{row.qty_issued}</td>
               </tr>
             ))
           ) : (
-            <tr><td colSpan="9">No data available</td></tr>
+            <tr>
+              <td colSpan="8" style={{ textAlign: 'center' }}>
+                No data available
+              </td>
+            </tr>
           )}
-
-          {/* End of Report + Grand Total row */}
-          <tr>
-            <td colSpan="7" style={{ textAlign: "left", fontWeight: "bold", paddingLeft: 12 }}>END OF REPORT</td>
-            <td style={{ textAlign: "right", fontWeight: "bold", paddingRight: 12 }}>GRAND TOTAL</td>
-            <td style={{ fontWeight: "bold" }}>{grandTotalQuantity}</td>
-          </tr>
         </tbody>
       </ItemTable>
-
       <Footer>
         Copyright © 2024. All rights reserved to DEPARTMENT of INFORMATION TECHNOLOGY - RMKEC
       </Footer>
     </Container>
   );
 });
+
+export default TransferReport;
