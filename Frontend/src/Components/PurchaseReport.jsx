@@ -37,7 +37,7 @@ const FilterContainer = styled.div`
   }
 
   @media print {
-    display: none; /* ✅ Hide dropdowns in print */
+    display: none;
   }
 `;
 
@@ -125,18 +125,29 @@ const Footer = styled.footer`
   }
 `;
 
+// Institution name mapping (keys must match the locationid values saved in localStorage)
+const institutionMap = {
+  RMKEC: "R.M.K. Engineering College",
+  RMD: "R.M.D. Engineering College",
+  RMKCET: "R.M.K. College of Engg. & Technology", // You can use the full name here
+  "RMK Residential school": "R.M.K. Residential School", // Note the quotes for spaces
+  "RMK Patashala": "R.M.K. Patashala" // Note the quotes for spaces
+};
 export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Dropdown state
+  // Dropdown state
   const [selectedItem, setSelectedItem] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
 
-  // ✅ Pull locationid from localStorage
+  // Pull locationid from localStorage
   const [selectedId] = useState(() => {
     return localStorage.getItem('locationid') || '';
   });
+
+  // Backend-returned grand total (fallback to computed if absent)
+  const [backendGrandTotal, setBackendGrandTotal] = useState(null);
 
   useEffect(() => {
     if (!selectedId) {
@@ -145,6 +156,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       return;
     }
 
+    setLoading(true);
     axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/purchaseReport`, {
       params: {
         startDate: fromDate,
@@ -153,7 +165,21 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       }
     })
     .then(res => {
-      setData(res.data.data || []);
+      const resp = res.data;
+      const rows = Array.isArray(resp.data) ? resp.data : [];
+      // Normalize numbers (if backend already returns numbers this is safe)
+      const normalized = rows.map(r => ({
+        ...r,
+        quantity: Number(r.quantity) || 0,
+        price: Number(r.price || r.amount) || 0,
+        total: Number(r.total) || (Number(r.quantity || 0) * Number(r.price || r.amount || 0))
+      }));
+      setData(normalized);
+      if (typeof resp.grandTotal !== 'undefined' && resp.grandTotal !== null) {
+        setBackendGrandTotal(Number(resp.grandTotal));
+      } else {
+        setBackendGrandTotal(null);
+      }
       setLoading(false);
     })
     .catch(err => {
@@ -167,7 +193,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
+    if (isNaN(date)) return dateString; // fallback if string already formatted
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
@@ -175,17 +203,26 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     });
   };
 
-  // ✅ Extract unique items and subcategories
+  // Unique items and categories for filters
   const uniqueItems = [...new Set(data.map(row => row.item_name))];
   const uniqueSubcategories = [...new Set(data.map(row => row.category))];
 
-  // ✅ Apply filtering
+
+
+  // Filtering
   const filteredData = data.filter(row => {
     return (
       (selectedItem ? row.item_name === selectedItem : true) &&
       (selectedSubcategory ? row.category === selectedSubcategory : true)
     );
   });
+
+  // Compute grand total if backend didn't provide it
+  const computedGrandTotal = filteredData.reduce((sum, row) => sum + (Number(row.total) || (Number(row.quantity || 0) * Number(row.price || 0))), 0);
+  const grandTotalToShow = (backendGrandTotal !== null) ? backendGrandTotal : computedGrandTotal;
+
+  const institutionCode = localStorage.getItem('locationname') || ""; // e.g., "RMKCET"
+const institutionName = institutionMap[institutionCode] || institutionCode; // institutionMap["RMKCET"] -> "R.M.K. College of Engg. & Technology"
 
   if (loading) {
     return (
@@ -205,19 +242,31 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     );
   }
 
-  return (
+return (
     <Container ref={ref} className="print-container">
       <PrintHeader>
-        <img src={Logo} alt="College Logo" />
+        <img src={Logo} alt="Logo" />
         <h1>INVENTORY MANAGEMENT SYSTEM</h1>
       </PrintHeader>
-      <h1>Purchase Report</h1>
+      <div style={{ textAlign: 'center' }}>
+          <h1 style={{ leftmargin: 0 }}>Purchase Report</h1>
+        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ textAlign: 'left', fontWeight: 'bold' }}>
+          NAME OF THE INSTITUTION : <span style={{ fontWeight: 400 }}>{institutionName}</span>
+        </div>
+        <div style={{ textAlign: 'right', fontWeight: 'bold' }}>
+          DATE : <span style={{ fontWeight: 400 }}>{formatDate(new Date().toISOString())}</span>
+        </div>
+      </div>
+
+      {/* From / To */}
       <DateRange>
         <h2>From: {formatDate(fromDate)}</h2>
         <h2>To: {formatDate(toDate)}</h2>
       </DateRange>
 
-      {/* ✅ Filters */}
+      {/* Filters */}
       <FilterContainer>
         <div>
           <label>Item: </label>
@@ -240,19 +289,18 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
         </div>
       </FilterContainer>
 
-      {/* ✅ Table */}
+      {/* Table with new column order and totals */}
       <ItemTable>
         <thead>
           <tr>
-            <th style={{ width: "70px" }}>SNO</th>
-            <th>Date</th>
-            <th>Item Name</th>
-            <th>Category</th>
-            <th>Quantity</th>
-            {/* <th>Invoice No</th> */}
-            <th>Amount</th>
-            <th>Shop Name</th>
-            <th>Shop Location</th>
+            <th style={{ width: "60px" }}>SL.NO</th>
+            <th style={{ width: "120px" }}>DATE</th>
+            <th>SHOP NAME</th>
+            <th>ITEM NAME</th>
+            <th>CATEGORY</th>
+            <th style={{ width: "80px" }}>QTY</th>
+            <th style={{ width: "100px" }}>PRICE</th>
+            <th style={{ width: "120px" }}>TOTAL</th>
           </tr>
         </thead>
         <tbody>
@@ -261,22 +309,28 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
               <tr key={index}>
                 <td>{index + 1}</td>
                 <td>{formatDate(row.purchase_date)}</td>
-                <td>{row.item_name}</td>
+                <td>{row.shop_name}</td>
+                <td style={{ textAlign: 'left' }}>{row.item_name}</td>
                 <td>{row.category}</td>
                 <td>{row.quantity}</td>
-                {/* <td>{row.invoice_no}</td> */}
-                <td>{formatNumber(row.amount)}</td>
-                <td>{row.shop_name}</td>
-                <td>{row.shop_location}</td>
+                <td>{formatNumber(row.price)}</td>
+                <td>{formatNumber(row.total)}</td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="9" style={{ textAlign: 'center' }}>
+              <td colSpan="8" style={{ textAlign: 'center' }}>
                 No data available
               </td>
             </tr>
           )}
+
+          {/* End of Report + Grand Total row */}
+          <tr>
+            <td colSpan="5" style={{ textAlign: "left", fontWeight: "bold", paddingLeft: 12 }}>END OF REPORT</td>
+            <td colSpan="2" style={{ textAlign: "right", fontWeight: "bold", paddingRight: 12 }}>GRAND TOTAL</td>
+            <td style={{ fontWeight: "bold" }}>{formatNumber(grandTotalToShow)}</td>
+          </tr>
         </tbody>
       </ItemTable>
 
@@ -286,3 +340,5 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     </Container>
   );
 });
+
+export default PurchaseReport;

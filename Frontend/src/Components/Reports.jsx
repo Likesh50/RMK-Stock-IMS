@@ -35,6 +35,33 @@ const ReportsGrid = styled.div`
   }
 `;
 
+// Container for inverted triangle layout with Transfer below
+const InvertedTriangleContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1000px;
+`;
+
+// Top row with Purchase and Dispatch side by side
+const TopRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 30px;
+  width: 100%;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+// Centered Transfer card container below
+const TransferRow = styled.div`
+  margin-top: 30px;
+  width: 500px;
+`;
+
 const ReportCardContainer = styled.div`
   background-color: #ffffff;
   padding: 30px;
@@ -87,7 +114,6 @@ const ReportCard = ({ title, route, fromDate, toDate, setFromDate, setToDate }) 
       toast.error('Please select both From and To dates.');
       return;
     }
-
     const formattedFromDate = dayjs(fromDate).format('YYYY-MM-DD');
     const formattedToDate = dayjs(toDate).format('YYYY-MM-DD');
     navigate(route, { state: { fromDate: formattedFromDate, toDate: formattedToDate } });
@@ -118,35 +144,55 @@ const ReportCard = ({ title, route, fromDate, toDate, setFromDate, setToDate }) 
 };
 
 const Reports = () => {
-  const [fromDate, setFromDate] = useState(null);
-  const [toDate, setToDate] = useState(null);
+  // Three separate pairs of state for each card!
+  const [purchaseFromDate, setPurchaseFromDate] = useState(null);
+  const [purchaseToDate, setPurchaseToDate] = useState(null);
+
+  const [dispatchFromDate, setDispatchFromDate] = useState(null);
+  const [dispatchToDate, setDispatchToDate] = useState(null);
+
+  const [transferFromDate, setTransferFromDate] = useState(null);
+  const [transferToDate, setTransferToDate] = useState(null);
 
   return (
     <>
       <ReportsContainer>
         <ReportsHeader>REPORTS</ReportsHeader>
-        <ReportsGrid>
-          <ReportCard 
-            title="PURCHASE" 
-            route="/dashboard/reports/purchase-report" 
-            fromDate={fromDate} 
-            toDate={toDate} 
-            setFromDate={setFromDate} 
-            setToDate={setToDate} 
-          />
-          <ReportCard 
-            title="DISPATCH" 
-            route="/dashboard/reports/dispatch-report" 
-            fromDate={fromDate} 
-            toDate={toDate} 
-            setFromDate={setFromDate} 
-            setToDate={setToDate} 
-          />
-        </ReportsGrid>
+        <InvertedTriangleContainer>
+          <TopRow>
+            <ReportCard
+              title="PURCHASE"
+              route="/dashboard/reports/purchase-report"
+              fromDate={purchaseFromDate}
+              toDate={purchaseToDate}
+              setFromDate={setPurchaseFromDate}
+              setToDate={setPurchaseToDate}
+            />
+            <ReportCard
+              title="DISPATCH"
+              route="/dashboard/reports/dispatch-report"
+              fromDate={dispatchFromDate}
+              toDate={dispatchToDate}
+              setFromDate={setDispatchFromDate}
+              setToDate={setDispatchToDate}
+            />
+          </TopRow>
+          <TransferRow>
+            <ReportCard
+              title="TRANSFER"
+              route="/dashboard/reports/transfer-report"
+              fromDate={transferFromDate}
+              toDate={transferToDate}
+              setFromDate={setTransferFromDate}
+              setToDate={setTransferToDate}
+            />
+          </TransferRow>
+        </InvertedTriangleContainer>
       </ReportsContainer>
       <ToastContainer />
     </>
   );
 };
+
 
 export default Reports;

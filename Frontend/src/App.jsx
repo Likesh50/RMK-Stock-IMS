@@ -11,6 +11,7 @@ import DashBoard from "./Components/Dashboard.jsx";
 import SignupPage from "./Components/SignUp.jsx";
 import PrintPurchaseReport from "./Components/PrintPurchaseReport.jsx";
 import PrintDispatchReport from "./Components/PrintDispatchReport.jsx";
+import PrintTransferReport from "./Components/PrintTransferReport.jsx";
 import ExpiryItems from "./Components/ExpiryItems.jsx";
 import OrderToPlace from "./Components/OrderToPlace.jsx";
 import UpdateItems from "./Components/UpdateItems.jsx";
@@ -58,6 +59,7 @@ function App() {
             <Route path="itemtable/print" element={<PrintPage/>}/>
             <Route path="reports/dispatch-report" element={<PrintDispatchReport/>} />
             <Route path="reports/purchase-report" element={<PrintPurchaseReport/>} />
+            <Route path="reports/transfer-report" element={<PrintTransferReport/>} />
           </Route>
         </Routes>
       </Router>
