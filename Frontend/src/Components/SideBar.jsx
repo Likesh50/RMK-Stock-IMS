@@ -12,6 +12,7 @@ import expiry from "../assets/expiry.png";
 import editdispatch from "../assets/edit-dispatch.png";
 import editpurchase from "../assets/edit-purchase.png";
 import Itemlist from "../assets/itemlist.png";
+import Itemstock from "../assets/checklists.png";
 import view from '../assets/view.png';
 import dashboard from '../assets/dashboard.png';
 import pen from '../assets/pen.png';
@@ -130,6 +131,7 @@ const SideBar = () => {
             Items To Order
           </Link>
         </SidebarItem>
+        
 
         {/* <SidebarItem className={isActive('/dashboard/expiry')}>
           <Link to="expiry">
@@ -161,6 +163,12 @@ const SideBar = () => {
           <Link to="itemtable">
             <img src={Itemlist} width="40px" height="40px" alt="Reports" />
             Item List
+          </Link>
+        </SidebarItem>
+        <SidebarItem className={isActive('/dashboard/itemtable')}>
+          <Link to="itemtable">
+            <img src={Itemstock} width="40px" height="40px" alt="Reports" />
+            Item Stock
           </Link>
         </SidebarItem>
         
