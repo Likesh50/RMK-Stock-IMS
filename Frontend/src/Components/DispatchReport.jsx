@@ -135,19 +135,82 @@ const institutionMap = {
   "RMK Patashala": "R.M.K. Patashala"
 };
 
+// MetaInfo styled component (matching PurchaseReport)
+const MetaInfo = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 50px;
+  margin: 20px 0 30px 0;
+  color: #164863;
+  text-align: left;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 180px;
+  }
+
+  .meta-label {
+    font-weight: 700;
+    font-size: 17px; /* larger font for UI */
+    color: #164863;
+  }
+
+  .meta-value {
+    font-weight: 500;
+    font-size: 17px; /* larger font for UI */
+  }
+
+  @media print {
+    justify-content: space-between;
+    gap: 10px;
+    margin: 10px 0 15px 0;
+
+    .meta-label,
+    .meta-value {
+      font-size: 18px; /* smaller for print */
+    }
+
+    div {
+      min-width: auto;
+      align-items: flex-start;
+    }
+  }
+`;
+
 export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Filters
+  // Filters (client-side)
   const [selectedItem, setSelectedItem] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  // ✅ get locationid from localStorage
+  // location id from localStorage
   const [selectedId] = useState(() => {
     return localStorage.getItem('locationid') || '';
   });
 
+  // Load userlocations from sessionStorage to prefer friendly location name
+  const [locations, setLocations] = useState([]);
+  useEffect(() => {
+    const stored = sessionStorage.getItem('userlocations');
+    if (stored) {
+      try {
+        setLocations(JSON.parse(stored));
+      } catch (err) {
+        console.error('Invalid JSON in sessionStorage for userlocations:', err);
+      }
+    }
+  }, []);
+
+  const selectedLocationNameFromSession = locations.find(
+    loc => String(loc.location_id) === String(selectedId)
+  )?.location_name || '';
+
+  // Fetch data when dates or location change (do NOT refetch on filter changes)
   useEffect(() => {
     if (!selectedId) {
       console.warn("No locationid found in localStorage");
@@ -155,15 +218,18 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       return;
     }
 
+    setLoading(true);
+
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/dispatchReport`, {
       params: {
         startDate: fromDate,
         endDate: toDate,
-        location_id: selectedId   // ✅ pass location_id
+        location_id: selectedId
+        // intentionally NOT sending item_id/subcategory here so we get the full dataset and filter client-side
       }
     })
     .then(res => {
-      setData(res.data.data || []); 
+      setData(res.data.data || []);
       setLoading(false);
     })
     .catch(err => {
@@ -173,7 +239,9 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   }, [fromDate, toDate, selectedId]);
 
   const formatDate = (dateString) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
+    if (isNaN(date)) return dateString;
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
@@ -181,15 +249,20 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     });
   };
 
-  // Institution name from localStorage
-  const institutionCode = localStorage.getItem('locationname') || "";
-  const institutionName = institutionMap[institutionCode] || institutionCode;
+  const formatCurrency = (val) => {
+    const num = Number(val) || 0;
+    return num.toFixed(2);
+  };
 
-  // Extract unique values for dropdowns
-  const uniqueItems = [...new Set(data.map(row => row.item_name))];
-  const uniqueCategories = [...new Set(data.map(row => row.category))];
+  // Institution name resolution:
+  const locationnameKey = localStorage.getItem('locationname') || '';
+  const institutionName = selectedLocationNameFromSession || (institutionMap[locationnameKey] || locationnameKey);
 
-  // Apply filter
+  // Extract unique values for dropdowns (derived from raw data)
+  const uniqueItems = [...new Set(data.map(row => row.item_name).filter(Boolean))];
+  const uniqueCategories = [...new Set(data.map(row => row.category).filter(Boolean))];
+
+  // Apply client-side filter (fast, reliable)
   const filteredData = data.filter(row => {
     return (
       (selectedItem ? row.item_name === selectedItem : true) &&
@@ -197,8 +270,26 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     );
   });
 
-  // Compute grand total quantity of dispatched items
-  const grandTotalQuantity = filteredData.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+  // Determine which columns to show:
+  // If an item is selected -> remove item name AND category columns.
+  // Else if a category is selected -> remove category only.
+  let showItemColumn = true;
+  let showCategoryColumn = true;
+  if (selectedItem) {
+    showItemColumn = false;
+    showCategoryColumn = false;
+  } else if (selectedCategory) {
+    showCategoryColumn = false;
+    showItemColumn = true;
+  }
+
+  // Columns: compute number of visible columns (used for colspan)
+  // Fixed columns count: SNO, Dispatch Date, Quantity, Block Name, Sticker No, Receiver, Incharge, Price, Total
+  const baseVisibleCount = 9; // SNO, Dispatch Date, Quantity, Block Name, Sticker No, Receiver, Incharge, Price, Total
+  const visibleColumnsCount = baseVisibleCount + (showItemColumn ? 1 : 0) + (showCategoryColumn ? 1 : 0);
+
+  // Compute grand total (sum of 'total' field returned by backend). Use numeric safe sum
+  const grandTotalAmount = filteredData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
 
   if (loading) {
     return (
@@ -218,27 +309,48 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     );
   }
 
-  rreturn (
-      <Container ref={ref} className="print-container">
-        <PrintHeader>
-          <img src={Logo} alt="Logo" />
-          <h1>INVENTORY MANAGEMENT SYSTEM</h1>
-        </PrintHeader>
-        <div style={{ textAlign: 'center' }}>
-            <h1 style={{ leftmargin: 0 }}>Dispatch Report</h1>
-          </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ textAlign: 'left', fontWeight: 'bold' }}>
-            NAME OF THE INSTITUTION : <span style={{ fontWeight: 400 }}>{institutionName}</span>
-          </div>
-          <div style={{ textAlign: 'right', fontWeight: 'bold' }}>
-            DATE : <span style={{ fontWeight: 400 }}>{formatDate(new Date().toISOString())}</span>
-          </div>
+  return (
+    <Container ref={ref} className="print-container">
+      <PrintHeader>
+        <img src={Logo} alt="Logo" />
+        <h1>INVENTORY MANAGEMENT SYSTEM</h1>
+      </PrintHeader>
+
+      <div style={{ textAlign: 'center' }}>
+        <h1 style={{ margin: 0 }}>Dispatch Report</h1>
+      </div>
+
+      {/* MetaInfo */}
+      <MetaInfo>
+        <div>
+          <span className="meta-label">Institution</span>
+          <span className="meta-value">{institutionName || '—'}</span>
         </div>
+        <div>
+          <span className="meta-label">Report Date</span>
+          <span className="meta-value">{formatDate(new Date().toISOString())}</span>
+        </div>
+        <div>
+          <span className="meta-label">From</span>
+          <span className="meta-value">{formatDate(fromDate)}</span>
+        </div>
+        <div>
+          <span className="meta-label">To</span>
+          <span className="meta-value">{formatDate(toDate)}</span>
+        </div>
+        <div>
+          <span className="meta-label">Item</span>
+          <span className="meta-value">{selectedItem || 'All'}</span>
+        </div>
+        <div>
+          <span className="meta-label">Category</span>
+          <span className="meta-value">{selectedCategory || 'All'}</span>
+        </div>
+      </MetaInfo>
 
       <DateRange>
-        <h2>From: {formatDate(fromDate)}</h2>
-        <h2>To: {formatDate(toDate)}</h2>
+        <h2 style={{ visibility: 'hidden' }}>From: {formatDate(fromDate)}</h2>
+        <h2 style={{ visibility: 'hidden' }}>To: {formatDate(toDate)}</h2>
       </DateRange>
 
       {/* Dropdown filters */}
@@ -268,13 +380,15 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
           <tr>
             <th style={{width:"70px"}}>SNO</th>
             <th>Dispatch Date</th>
-            <th>Item Name</th>
-            <th>Category</th>
+            {showItemColumn && <th>Item Name</th>}
+            {showCategoryColumn && <th>Category</th>}
             <th>Quantity</th>
             <th>Block Name</th>
             <th>Sticker No</th>
             <th>Receiver</th>
             <th>Incharge</th>
+            <th>Price</th>
+            <th>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -283,24 +397,31 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
               <tr key={index}>
                 <td>{index+1}</td>
                 <td>{formatDate(row.dispatch_date)}</td>
-                <td>{row.item_name}</td>
-                <td>{row.category}</td>
-                <td>{row.quantity}</td>
-                <td>{row.block_name}</td>
-                <td>{row.sticker_no}</td>
-                <td>{row.receiver}</td>
-                <td>{row.incharge}</td>
+                {showItemColumn && <td style={{ textAlign: 'left' }}>{row.item_name || '—'}</td>}
+                {showCategoryColumn && <td>{row.category || '—'}</td>}
+                <td>{Number(row.quantity) || 0}</td>
+                <td>{row.block_name || '—'}</td>
+                <td>{row.sticker_no || '—'}</td>
+                <td>{row.receiver || '—'}</td>
+                <td>{row.incharge || '—'}</td>
+                <td>{formatCurrency(row.price)}</td>
+                <td>{formatCurrency(row.total)}</td>
               </tr>
             ))
           ) : (
-            <tr><td colSpan="9">No data available</td></tr>
+            <tr>
+              <td colSpan={visibleColumnsCount} style={{ textAlign: 'center' }}>No data available</td>
+            </tr>
           )}
 
           {/* End of Report + Grand Total row */}
           <tr>
-            <td colSpan="7" style={{ textAlign: "left", fontWeight: "bold", paddingLeft: 12 }}>END OF REPORT</td>
+            {/* We reserve last two columns for GRAND TOTAL label and value */}
+            <td colSpan={Math.max(1, visibleColumnsCount - 2)} style={{ textAlign: "left", fontWeight: "bold", paddingLeft: 12 }}>
+              END OF REPORT
+            </td>
             <td style={{ textAlign: "right", fontWeight: "bold", paddingRight: 12 }}>GRAND TOTAL</td>
-            <td style={{ fontWeight: "bold" }}>{grandTotalQuantity}</td>
+            <td style={{ fontWeight: "bold" }}>{formatCurrency(grandTotalAmount)}</td>
           </tr>
         </tbody>
       </ItemTable>
@@ -311,3 +432,5 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     </Container>
   );
 });
+
+export default DispatchReport;
