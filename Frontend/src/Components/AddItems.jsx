@@ -103,6 +103,7 @@ const AddItems = () => {
       setUnit("");
       setMinimum("");
       setFilteredItems([]);
+      window.location.reload();
     } catch (error) {
       toast.error(error.response?.data || 'Error adding item.');
     }

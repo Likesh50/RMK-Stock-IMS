@@ -3,7 +3,7 @@ const db = require('../db'); // Assuming you have a DB connection module
 const router = express.Router();
 router.get('/', async (req, res) => {
     try {
-        const [rows] = await db.query(`SELECT * FROM items ORDER BY sub_category,category, item_name`);
+        const [rows] = await db.query(`SELECT * FROM items ORDER BY item_name,sub_category,category`);
         res.json(rows);
     } catch (err) {
         console.error('Error executing query:', err);
@@ -29,13 +29,13 @@ router.get('/:id', async (req, res) => {
 // ✅ Update item
 router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    const { item_name, unit, category, min_quantity } = req.body;
+    const { item_name, unit, category, min_quantity,sub_category } = req.body;
     const query = `
         UPDATE items 
-        SET item_name = ?, unit = ?, category = ?, min_quantity = ? 
+        SET item_name = ?, unit = ?, category = ?, min_quantity = ? ,sub_category = ?
         WHERE item_id = ?
     `;
-    const data = [item_name, unit.toUpperCase(), category, min_quantity, id];
+    const data = [item_name, unit.toUpperCase(), category, min_quantity,sub_category,id];
 
     try {
         const [result] = await db.query(query, data);

@@ -71,10 +71,12 @@ const Label = styled.label`
 const UpdateItems = () => {
   const [items, setItems] = useState([]); // State to store all items for the dropdown
   const [categories, setCategories] = useState([]); // State to store categories
+  const [subcategories, setsubCategories] = useState([]);
   const [itemData, setItemData] = useState({
     item_name: '',
     unit: '',
     category: '',
+    sub_category: '',
     min_quantity: 0,
   });
   const [selectedItemId, setSelectedItemId] = useState(''); // State to track selected item ID
@@ -95,6 +97,7 @@ const UpdateItems = () => {
       Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/items/${selectedItemId}`)
         .then(res => {
           setItemData(res.data); // Set the item details in the form
+          
         })
         .catch(err => console.error('Error fetching item details:', err));
     }
@@ -104,11 +107,14 @@ const UpdateItems = () => {
     // Fetch categories for the category dropdown
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/addItems/getcategory`)
       .then(res => {
-        setCategories(res.data); 
+        setCategories(res.data);
+        setsubCategories(res.data); 
         console.log(res.data)// Assuming the API returns an array of categories
       })
       .catch(err => console.error('Error fetching categories:', err));
   }, []);
+
+   
 
   const handleInputChange = e => {
     setItemData({
@@ -180,7 +186,21 @@ const UpdateItems = () => {
               </option>
             ))}
           </Select>
+          
+          <Label>Sub Category:</Label>
+          <Select
+            name="sub_category"
+            value={itemData.sub_category}
+            onChange={handleInputChange}
+          >
+            <option value="">Select a Sub category</option>
+            {subcategories.map((subcat, idx) => (
+            <option key={idx} value={subcat.sub_category}>
+              {subcat.sub_category}
+            </option>
+          ))}
 
+          </Select>
 
           <Label>Minimum Quantity:</Label>
           <Input

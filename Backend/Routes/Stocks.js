@@ -25,7 +25,7 @@ router.get('/availablestock', async (req, res) => {
       JOIN items i ON s.item_id = i.item_id
       WHERE s.location_id = ?
       GROUP BY i.item_name, i.sub_category, i.category, i.unit
-      ORDER BY i.category;
+      ORDER BY i.item_name,i.category;
     `;
 
     const [rows] = await db.query(query, [locationId]);

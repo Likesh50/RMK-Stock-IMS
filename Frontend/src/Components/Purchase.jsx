@@ -374,7 +374,9 @@ const confirmSubmit = async () => {
     };
     const fetchItemsBySubcategory = async (subcategory, rowId) => {
   try {
-    const response = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/purchase/getItemsBySubcategory?subcategory=${subcategory}`);
+    const response = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/purchase/getItemsBySubcategory`, {
+          params: { subcategory }
+        });
     const options = response.data.map(item => ({
       label: item.item_name,
       value: item.item_id

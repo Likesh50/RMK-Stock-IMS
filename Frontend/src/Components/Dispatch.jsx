@@ -354,6 +354,24 @@ const fetchAvailableStock = async (rowId, itemId) => {
       prevRows.map(row => (row.id === id ? { ...row, [field]: value } : row))
     );
   };
+  const handleAddOneRow = () => {
+  setRows(prevRows => [
+    ...prevRows,
+    {
+      id: Date.now(),
+      category: '',
+      item: '',
+      quantity: '',
+      location: '',
+      receiver: '',
+      incharge: '',
+      selectedPurchaseId: '',
+      availableForBatch: 0,
+      block_id: '',
+      sticker_no: ''
+    }
+  ]);
+};
 
   const handleDeleteRow = (id) => {
     setRows(prevRows => prevRows.filter(row => row.id !== id));
@@ -535,6 +553,7 @@ const fetchAvailableStock = async (rowId, itemId) => {
       </ItemTable>
 
       <SubmitContainer>
+        <button className="add-button" onClick={handleAddOneRow}>Add One Row</button>
         <SubmitButton onClick={handleSubmit}>Submit Dispatch</SubmitButton>
       </SubmitContainer>
 

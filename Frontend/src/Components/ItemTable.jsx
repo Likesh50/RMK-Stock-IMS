@@ -91,6 +91,7 @@ const ItemsTable = () => {
         <Table>
           <thead>
             <tr>
+              <Th>S.NO</Th>
               <Th>Item ID</Th>
               <Th>Item Name</Th>
               <Th>Unit</Th>
@@ -99,8 +100,9 @@ const ItemsTable = () => {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {items.map((item,i) => (
               <tr key={item.item_id}>
+                <Td>{i+1}</Td>
                 <Td>{item.item_id}</Td>
                 <Td>{item.item_name}</Td>
                 <Td>{item.unit}</Td>
