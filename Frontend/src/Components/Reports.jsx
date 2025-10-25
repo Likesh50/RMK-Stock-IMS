@@ -154,6 +154,9 @@ const Reports = () => {
   const [transferFromDate, setTransferFromDate] = useState(null);
   const [transferToDate, setTransferToDate] = useState(null);
 
+  const [netFromDate, setNetFromDate] = useState(null);
+  const [netToDate, setNetToDate] = useState(null);
+
   return (
     <>
       <ReportsContainer>
@@ -177,7 +180,9 @@ const Reports = () => {
               setToDate={setDispatchToDate}
             />
           </TopRow>
-          <TransferRow>
+          <br>
+          </br>
+          <TopRow>
             <ReportCard
               title="TRANSFER"
               route="/dashboard/reports/transfer-report"
@@ -186,7 +191,15 @@ const Reports = () => {
               setFromDate={setTransferFromDate}
               setToDate={setTransferToDate}
             />
-          </TransferRow>
+            <ReportCard
+              title="Net Report"
+              route="/dashboard/reports/net-report"
+              fromDate={netFromDate}
+              toDate={netToDate}
+              setFromDate={setNetFromDate}
+              setToDate={setNetToDate}
+            />
+          </TopRow>
         </InvertedTriangleContainer>
       </ReportsContainer>
       <ToastContainer />

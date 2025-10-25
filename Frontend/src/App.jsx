@@ -22,6 +22,9 @@ import PrintPage from "./Components/PrintPage.jsx";
 import Blocks from "./Components/Blocks.jsx";
 import Shops from "./Components/Shops.jsx";
 import Transfer from "./Components/Transfer.jsx";
+import ProductStock from "./Components/ProductStock.jsx";
+import PrintNetReport from "./Components/PrintNetReport.jsx";
+import PrintAvailableStock from "./Components/PrintAvailableStock.jsx";
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -47,7 +50,7 @@ function App() {
             <Route path="shops" element={<Shops/>} />
              <Route path="transfer" element={<Transfer/>} />
             <Route path="purchase" element={<Purchase/>} />
-            <Route path="available" element={<AvailableStock />} />
+            <Route path="available" element={<PrintAvailableStock />} />
             <Route path="editpurchase" element={<EditPurchase />} />
             <Route path="reports" element={<Reports />} />
             <Route path="add" element={<AddItems />} />
@@ -57,9 +60,11 @@ function App() {
             <Route path="editdispatch" element={<EditDispatch/>}/>
             <Route path="itemtable" element={<ItemsTable/>}/>
             <Route path="itemtable/print" element={<PrintPage/>}/>
+            <Route path="productStock" element={<ProductStock/>}/>
             <Route path="reports/dispatch-report" element={<PrintDispatchReport/>} />
             <Route path="reports/purchase-report" element={<PrintPurchaseReport/>} />
             <Route path="reports/transfer-report" element={<PrintTransferReport/>} />
+            <Route path="reports/net-report" element={<PrintNetReport/>} />
           </Route>
         </Routes>
       </Router>

@@ -16,6 +16,7 @@ const Container = styled.div`
   }
 `;
 
+/* Filters */
 const FilterContainer = styled.div`
   display: flex;
   justify-content: flex-start;
@@ -24,12 +25,12 @@ const FilterContainer = styled.div`
 
   label {
     font-size: 16px;
-    font-weight: bold;
+    font-weight: 700;
     color: #164863;
   }
 
   select {
-    padding: 6px;
+    padding: 6px 8px;
     border-radius: 4px;
     border: 1px solid #ccc;
     min-width: 180px;
@@ -41,76 +42,117 @@ const FilterContainer = styled.div`
   }
 `;
 
+/* Table */
 const ItemTable = styled.table`
   width: 100%;
   border-collapse: collapse;
-  font-family: Arial, sans-serif;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
   table-layout: fixed;
+  background: white;
 
-  th, td {
-    border: 1px solid #ddd;
-    padding: 10px;
-    text-align: center;
-    overflow-wrap: break-word;
-    word-break: break-word;
-    font-size: 18px;
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #164863;
+    color: #fff;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    border-bottom: 2px solid rgba(0,0,0,0.08);
   }
 
-  th {
-    background-color: #164863;
-    color: white;
+  th, td {
+    border: 1px solid #e6e6e6;
+    padding: 12px 10px;
+    vertical-align: middle; /* key: vertically center */
     font-size: 15px;
-    font-weight: bold;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   tbody tr {
-    background-color: #f9f9f9;
+    background-color: #fff;
   }
 
   tbody tr:nth-child(even) {
-    background-color: #f1f1f1;
+    background-color: #fbfbfb;
   }
 
   tbody tr:hover {
-    background-color: #e0f7fa;
-    color: #000;
+    background-color: #f1fbff;
+  }
+
+  /* column classes for alignment */
+  td.left, th.left { text-align: left; }
+  td.center, th.center { text-align: center; }
+  td.right, th.right { text-align: right; }
+
+  /* column width hints (min-widths keep layout stable) */
+  th.sno { width: 60px; min-width: 60px; }
+  th.date { width: 120px; min-width: 110px; }
+  th.shop { width: 220px; min-width: 150px; }
+  th.item { width: 300px; min-width: 150px; }
+  th.category { width: 160px; min-width: 120px; }
+  th.qty { width: 80px; min-width: 60px; }
+  th.price { width: 100px; min-width: 80px; }
+  th.total { width: 120px; min-width: 100px; }
+
+  @media print {
+    th, td { font-size: 11px; padding: 6px; }
+    thead th { position: static; } /* avoid sticky in print */
+  }
+`;
+
+/* Meta section */
+const MetaInfo = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 40px;
+  margin: 20px 0 20px 0;
+  color: #164863;
+  text-align: left;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+  }
+
+  .meta-label {
+    font-weight: 700;
+    font-size: 16px;
+    color: #164863;
+  }
+
+  .meta-value {
+    font-weight: 500;
+    font-size: 16px;
   }
 
   @media print {
-    th, td {
-      font-size: 11px; 
-    }
+    gap: 10px;
+    margin: 10px 0 10px 0;
+    .meta-label, .meta-value { font-size: 20px; }
   }
 `;
 
 const DateRange = styled.div`
   display: flex;
   justify-content: space-between;
-  margin-bottom: 20px;
-
-  h2 {
-    margin: 0;
-    font-size: 20px;
-  }
+  margin-bottom: 12px;
+  h2 { margin: 0; font-size: 16px; color: #333; }
 `;
 
 const PrintHeader = styled.div`
   display: none;
   text-align: center;
-  margin-bottom: 20px;
-  img {
-    width: 150px;
-    height: auto;
-    margin-bottom: 10px;
-  }
+  margin-bottom: 10px;
+  img { width: 150px; height: auto; margin-bottom: 6px; }
+  h1 { font-size: 24px; }
 
-  h1 {
-    font-size: 30px;
-  }
-
-  @media print {
-    display: block;
-  }
+  @media print { display: block; }
 `;
 
 const Footer = styled.footer`
@@ -118,21 +160,20 @@ const Footer = styled.footer`
   padding: 10px;
   background-color: #164863;
   color: white;
-  margin-top: 0px;
   display: none;
-  @media print {
-    display: block;
-  }
+  margin-top: 12px;
+  @media print { display: block; }
 `;
 
-// Institution name mapping (keys must match the locationid values saved in localStorage)
+// Institution name mapping
 const institutionMap = {
-  RMKEC: "R.M.K. Engineering College",
-  RMD: "R.M.D. Engineering College",
-  RMKCET: "R.M.K. College of Engg. & Technology", // You can use the full name here
-  "RMK Residential school": "R.M.K. Residential School", // Note the quotes for spaces
-  "RMK Patashala": "R.M.K. Patashala" // Note the quotes for spaces
+  RMKEC: "R.M.K. Engineering College",
+  RMD: "R.M.D. Engineering College",
+  RMKCET: "R.M.K. College of Engg. & Technology",
+  "RMK Residential school": "R.M.K. Residential School",
+  "RMK Patashala": "R.M.K. Patashala"
 };
+
 export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -145,6 +186,24 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [selectedId] = useState(() => {
     return localStorage.getItem('locationid') || '';
   });
+
+  // Locations loaded from sessionStorage (userlocations)
+  const [locations, setLocations] = useState([]);
+  useEffect(() => {
+    const stored = sessionStorage.getItem('userlocations');
+    if (stored) {
+      try {
+        setLocations(JSON.parse(stored));
+      } catch (err) {
+        console.error('Invalid JSON in sessionStorage for userlocations:', err);
+      }
+    }
+  }, []);
+
+  // Derive selected location name from the locations array (fallbacks handled below)
+  const selectedLocationNameFromSession = locations.find(
+    loc => String(loc.location_id) === String(selectedId)
+  )?.location_name || '';
 
   // Backend-returned grand total (fallback to computed if absent)
   const [backendGrandTotal, setBackendGrandTotal] = useState(null);
@@ -167,7 +226,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     .then(res => {
       const resp = res.data;
       const rows = Array.isArray(resp.data) ? resp.data : [];
-      // Normalize numbers (if backend already returns numbers this is safe)
+      // Normalize numbers
       const normalized = rows.map(r => ({
         ...r,
         quantity: Number(r.quantity) || 0,
@@ -195,7 +254,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    if (isNaN(date)) return dateString; // fallback if string already formatted
+    if (isNaN(date)) return dateString;
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
@@ -206,8 +265,6 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   // Unique items and categories for filters
   const uniqueItems = [...new Set(data.map(row => row.item_name))];
   const uniqueSubcategories = [...new Set(data.map(row => row.category))];
-
-
 
   // Filtering
   const filteredData = data.filter(row => {
@@ -221,8 +278,18 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const computedGrandTotal = filteredData.reduce((sum, row) => sum + (Number(row.total) || (Number(row.quantity || 0) * Number(row.price || 0))), 0);
   const grandTotalToShow = (backendGrandTotal !== null) ? backendGrandTotal : computedGrandTotal;
 
-  const institutionCode = localStorage.getItem('locationname') || ""; // e.g., "RMKCET"
-const institutionName = institutionMap[institutionCode] || institutionCode; // institutionMap["RMKCET"] -> "R.M.K. College of Engg. & Technology"
+  // Determine institution name:
+  const locationnameKey = localStorage.getItem('locationname') || '';
+  const institutionName = selectedLocationNameFromSession || (institutionMap[locationnameKey] || locationnameKey);
+
+  // Determine which columns to show
+  const showItemColumn = !selectedItem;
+  const showCategoryColumn = !selectedItem && !selectedSubcategory;
+
+  // Visible columns count for colspan logic:
+  // Base columns: SL.NO, DATE, SHOP NAME, QTY, PRICE, TOTAL = 6 always visible
+  const baseCols = 6;
+  const visibleCols = baseCols + (showItemColumn ? 1 : 0) + (showCategoryColumn ? 1 : 0);
 
   if (loading) {
     return (
@@ -242,31 +309,49 @@ const institutionName = institutionMap[institutionCode] || institutionCode; // i
     );
   }
 
-return (
+  return (
     <Container ref={ref} className="print-container">
       <PrintHeader>
         <img src={Logo} alt="Logo" />
         <h1>INVENTORY MANAGEMENT SYSTEM</h1>
       </PrintHeader>
-      <div style={{ textAlign: 'center' }}>
-          <h1 style={{ leftmargin: 0 }}>Purchase Report</h1>
-        </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ textAlign: 'left', fontWeight: 'bold' }}>
-          NAME OF THE INSTITUTION : <span style={{ fontWeight: 400 }}>{institutionName}</span>
-        </div>
-        <div style={{ textAlign: 'right', fontWeight: 'bold' }}>
-          DATE : <span style={{ fontWeight: 400 }}>{formatDate(new Date().toISOString())}</span>
-        </div>
+
+      <div style={{ textAlign: 'center', marginBottom: 8 }}>
+        <h1 style={{ margin: 0 }}>Purchase Report</h1>
       </div>
 
-      {/* From / To */}
+      <MetaInfo>
+        <div>
+          <span className="meta-label">Institution</span>
+          <span className="meta-value">{institutionName || '—'}</span>
+        </div>
+        <div>
+          <span className="meta-label">Report Date</span>
+          <span className="meta-value">{formatDate(new Date().toISOString())}</span>
+        </div>
+        <div>
+          <span className="meta-label">From</span>
+          <span className="meta-value">{formatDate(fromDate)}</span>
+        </div>
+        <div>
+          <span className="meta-label">To</span>
+          <span className="meta-value">{formatDate(toDate)}</span>
+        </div>
+        <div>
+          <span className="meta-label">Item</span>
+          <span className="meta-value">{selectedItem || 'All'}</span>
+        </div>
+        <div>
+          <span className="meta-label">Category</span>
+          <span className="meta-value">{selectedSubcategory || 'All'}</span>
+        </div>
+      </MetaInfo>
+
       <DateRange>
-        <h2>From: {formatDate(fromDate)}</h2>
-        <h2>To: {formatDate(toDate)}</h2>
+        <h2 style={{ visibility: 'hidden' }}>From: {formatDate(fromDate)}</h2>
+        <h2 style={{ visibility: 'hidden' }}>To: {formatDate(toDate)}</h2>
       </DateRange>
 
-      {/* Filters */}
       <FilterContainer>
         <div>
           <label>Item: </label>
@@ -289,37 +374,37 @@ return (
         </div>
       </FilterContainer>
 
-      {/* Table with new column order and totals */}
       <ItemTable>
         <thead>
           <tr>
-            <th style={{ width: "60px" }}>SL.NO</th>
-            <th style={{ width: "120px" }}>DATE</th>
-            <th>SHOP NAME</th>
-            <th>ITEM NAME</th>
-            <th>CATEGORY</th>
-            <th style={{ width: "80px" }}>QTY</th>
-            <th style={{ width: "100px" }}>PRICE</th>
-            <th style={{ width: "120px" }}>TOTAL</th>
+            <th className="sno center">SL.NO</th>
+            <th className="date center">DATE</th>
+            <th className="shop left">SHOP NAME</th>
+            {showItemColumn && <th className="item left">ITEM NAME</th>}
+            {showCategoryColumn && <th className="category left">CATEGORY</th>}
+            <th className="qty right">QTY</th>
+            <th className="price right">PRICE</th>
+            <th className="total right">TOTAL</th>
           </tr>
         </thead>
+
         <tbody>
           {filteredData.length > 0 ? (
             filteredData.map((row, index) => (
               <tr key={index}>
-                <td>{index + 1}</td>
-                <td>{formatDate(row.purchase_date)}</td>
-                <td>{row.shop_name}</td>
-                <td style={{ textAlign: 'left' }}>{row.item_name}</td>
-                <td>{row.category}</td>
-                <td>{row.quantity}</td>
-                <td>{formatNumber(row.price)}</td>
-                <td>{formatNumber(row.total)}</td>
+                <td className="center">{index + 1}</td>
+                <td className="center">{formatDate(row.purchase_date)}</td>
+                <td className="left">{row.shop_name || '—'}</td>
+                {showItemColumn && <td className="left">{row.item_name || '—'}</td>}
+                {showCategoryColumn && <td className="left">{row.category || '—'}</td>}
+                <td className="right">{Number(row.quantity) || 0}</td>
+                <td className="right">{formatNumber(row.price)}</td>
+                <td className="right">{formatNumber(row.total)}</td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="8" style={{ textAlign: 'center' }}>
+              <td colSpan={visibleCols} style={{ textAlign: 'center', padding: 20 }}>
                 No data available
               </td>
             </tr>
@@ -327,9 +412,17 @@ return (
 
           {/* End of Report + Grand Total row */}
           <tr>
-            <td colSpan="5" style={{ textAlign: "left", fontWeight: "bold", paddingLeft: 12 }}>END OF REPORT</td>
-            <td colSpan="2" style={{ textAlign: "right", fontWeight: "bold", paddingRight: 12 }}>GRAND TOTAL</td>
-            <td style={{ fontWeight: "bold" }}>{formatNumber(grandTotalToShow)}</td>
+            <td colSpan={Math.max(1, visibleCols - 2)} style={{ textAlign: "left", fontWeight: "700", paddingLeft: 16, background: '#fafafa' }}>
+              END OF REPORT
+            </td>
+
+            <td colSpan="1" style={{ textAlign: "right", fontWeight: "700", paddingRight: 12, background: '#fafafa' }}>
+              GRAND TOTAL
+            </td>
+
+            <td style={{ textAlign: "right", fontWeight: "700", paddingRight: 16, background: '#fafafa' }}>
+              {formatNumber(grandTotalToShow)}
+            </td>
           </tr>
         </tbody>
       </ItemTable>

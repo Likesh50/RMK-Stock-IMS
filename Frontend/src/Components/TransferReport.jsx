@@ -119,6 +119,51 @@ const institutionMap = {
   "RMK Patashala": "R.M.K. Patashala"
 };
 
+// MetaInfo styled component (same as PurchaseReport)
+const MetaInfo = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 50px;
+  margin: 20px 0 30px 0;
+  color: #164863;
+  text-align: left;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 180px;
+  }
+
+  .meta-label {
+    font-weight: 700;
+    font-size: 17px;
+    color: #164863;
+  }
+
+  .meta-value {
+    font-weight: 500;
+    font-size: 17px;
+  }
+
+  @media print {
+    justify-content: space-between;
+    gap: 10px;
+    margin: 10px 0 15px 0;
+
+    .meta-label,
+    .meta-value {
+      font-size: 18px;
+    }
+
+    div {
+      min-width: auto;
+      align-items: flex-start;
+    }
+  }
+`;
+
 export const TransferReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +171,24 @@ export const TransferReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const [selectedItem, setSelectedItem] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [selectedFromLocation] = useState(() => localStorage.getItem('locationid') || '');
+
+  // Load userlocations from sessionStorage to prefer friendly location name
+  const [locations, setLocations] = useState([]);
+  useEffect(() => {
+    const stored = sessionStorage.getItem('userlocations');
+    if (stored) {
+      try {
+        setLocations(JSON.parse(stored));
+      } catch (err) {
+        console.error('Invalid JSON in sessionStorage for userlocations:', err);
+      }
+    }
+  }, []);
+
+  // Derive selected location name from the locations array (fallbacks handled below)
+  const selectedLocationNameFromSession = locations.find(
+    loc => String(loc.location_id) === String(selectedFromLocation)
+  )?.location_name || '';
 
   useEffect(() => {
     if (!fromDate || !toDate) {
@@ -170,8 +233,12 @@ export const TransferReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const uniqueItems = [...new Set(data.map(row => row.item_name))];
   const uniqueSubcategories = [...new Set(data.map(row => row.category))];
 
-  const institutionCode = localStorage.getItem('locationname') || "";
-  const institutionName = institutionMap[institutionCode] || institutionCode;
+  // Institution name resolution:
+  // 1) try session's userlocations (selectedLocationNameFromSession)
+  // 2) try localStorage key 'locationname' mapped via institutionMap
+  // 3) fallback to whatever localStorage 'locationname' contains or empty string
+  const locationnameKey = localStorage.getItem('locationname') || '';
+  const institutionName = selectedLocationNameFromSession || (institutionMap[locationnameKey] || locationnameKey);
 
   if (loading) {
     return (
@@ -197,23 +264,45 @@ export const TransferReport = React.forwardRef(({ fromDate, toDate }, ref) => {
         <img src={Logo} alt="Logo" />
         <h1>INVENTORY MANAGEMENT SYSTEM</h1>
       </PrintHeader>
+
       <div style={{ textAlign: 'center' }}>
-          <h1 style={{ leftmargin: 0 }}>Stock Transfer</h1>
-        </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ textAlign: 'left', fontWeight: 'bold' }}>
-          NAME OF THE INSTITUTION : <span style={{ fontWeight: 400 }}>{institutionName}</span>
-        </div>
-        <div style={{ textAlign: 'right', fontWeight: 'bold' }}>
-          DATE : <span style={{ fontWeight: 400 }}>{formatDate(new Date().toISOString())}</span>
-        </div>
+        <h1 style={{ margin: 0 }}>Stock Transfer</h1>
       </div>
+
+      {/* MetaInfo block (matches PurchaseReport style) */}
+      <MetaInfo>
+        <div>
+          <span className="meta-label">Institution</span>
+          <span className="meta-value">{institutionName || '—'}</span>
+        </div>
+        <div>
+          <span className="meta-label">Report Date</span>
+          <span className="meta-value">{formatDate(new Date().toISOString())}</span>
+        </div>
+        <div>
+          <span className="meta-label">From</span>
+          <span className="meta-value">{formatDate(fromDate)}</span>
+        </div>
+        <div>
+          <span className="meta-label">To</span>
+          <span className="meta-value">{formatDate(toDate)}</span>
+        </div>
+        <div>
+          <span className="meta-label">Item</span>
+          <span className="meta-value">{selectedItem || 'All'}</span>
+        </div>
+        <div>
+          <span className="meta-label">Category</span>
+          <span className="meta-value">{selectedSubcategory || 'All'}</span>
+        </div>
+      </MetaInfo>
 
       {/* From / To */}
       <DateRange>
-        <h2>From: {formatDate(fromDate)}</h2>
-        <h2>To: {formatDate(toDate)}</h2>
+        <h2 style={{ visibility: 'hidden' }}>From: {formatDate(fromDate)}</h2>
+        <h2 style={{ visibility: 'hidden' }}>To: {formatDate(toDate)}</h2>
       </DateRange>
+
       <FilterContainer>
         <div>
           <label>Item: </label>
@@ -234,6 +323,7 @@ export const TransferReport = React.forwardRef(({ fromDate, toDate }, ref) => {
           </select> 
         </div>
       </FilterContainer>
+
       <ItemTable>
         <thead>
           <tr>
@@ -253,7 +343,7 @@ export const TransferReport = React.forwardRef(({ fromDate, toDate }, ref) => {
               <tr key={index}>
                 <td>{index + 1}</td>
                 <td>{formatDate(row.transfer_date)}</td>
-                <td>{row.item_name}</td>
+                <td style={{ textAlign: 'left' }}>{row.item_name}</td>
                 <td>{row.category}</td>
                 <td>{row.received_fr}</td>
                 <td>{row.qty_received}</td>
