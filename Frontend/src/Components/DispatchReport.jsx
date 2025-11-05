@@ -37,7 +37,7 @@ const FilterContainer = styled.div`
   }
 
   @media print {
-    display: none; /* ✅ Hide filters when printing */
+    display: none; /* hide filters in print */
   }
 `;
 
@@ -45,21 +45,26 @@ const ItemTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-family: Arial, sans-serif;
-  table-layout: fixed;
 
+  /* Use auto layout so item column can expand naturally */
+  table-layout: auto;
+
+  /* small padding for most cells to preserve horizontal room */
   th, td {
     border: 1px solid #ddd;
-    padding: 10px;
+    padding: 6px 6px;           /* <-- reduced padding for compact cells */
     text-align: center;
-    overflow-wrap: break-word;
-    word-break: break-word;
-    font-size: 18px;
+    overflow: hidden;
+    font-size: 14px;
+    vertical-align: middle;
+    white-space: nowrap;        /* default: keep other columns single-line */
+    text-overflow: ellipsis;
   }
 
   th {
     background-color: #164863;
     color: white;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: bold;
   }
 
@@ -76,12 +81,43 @@ const ItemTable = styled.table`
     color: #000;
   }
 
+  /* Narrow fixed-ish columns - keep these compact */
+  th.sno, td.sno { width: 60px; min-width: 50px; }        /* serial */
+  th.date, td.date { width: 110px; min-width: 90px; }     /* date */
+  th.qty, td.qty { width: 80px; min-width: 60px; }        /* quantity */
+  th.price, td.price { width: 90px; min-width: 70px; }    /* price */
+  th.total, td.total { width: 100px; min-width: 80px; }   /* total */
+
+  /* ITEM column: allow it to expand and wrap as needed */
+  th.item, td.item {
+    text-align: left;
+    padding: 8px 10px;           /* slightly larger padding for item column */
+    white-space: normal;         /* allow wrap for long item names */
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: 14px;
+  }
+
+  /* For other text-heavy columns (block_name, receiver), allow wrapping but keep small padding */
+  td.block_name, th.block_name,
+  td.receiver, th.receiver {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    padding: 6px 8px;
+  }
+
+  /* On print, make font a bit smaller but allow wrapping to avoid truncation */
   @media print {
     th, td {
-      font-size: 7px; 
+      padding: 4px 6px;
+      font-size: 11px;
+      white-space: normal;
     }
+    thead th { position: static; } /* avoid sticky in print */
   }
 `;
+
 
 const DateRange = styled.div`
   display: flex;
@@ -135,7 +171,6 @@ const institutionMap = {
   "RMK Patashala": "R.M.K. Patashala"
 };
 
-// MetaInfo styled component (matching PurchaseReport)
 const MetaInfo = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -154,13 +189,13 @@ const MetaInfo = styled.div`
 
   .meta-label {
     font-weight: 700;
-    font-size: 17px; /* larger font for UI */
+    font-size: 17px;
     color: #164863;
   }
 
   .meta-value {
     font-weight: 500;
-    font-size: 17px; /* larger font for UI */
+    font-size: 17px;
   }
 
   @media print {
@@ -170,7 +205,7 @@ const MetaInfo = styled.div`
 
     .meta-label,
     .meta-value {
-      font-size: 18px; /* smaller for print */
+      font-size: 18px;
     }
 
     div {
@@ -180,7 +215,25 @@ const MetaInfo = styled.div`
   }
 `;
 
-export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
+/**
+ * visibleColumns prop shape (optional):
+ * {
+ *   sno: true,
+ *   dispatchDate: true,
+ *   item: true,
+ *   category: true,
+ *   quantity: true,
+ *   block_name: true,
+ *   sticker_no: true,
+ *   receiver: true,
+ *   incharge: true,
+ *   price: true,
+ *   total: true
+ * }
+ *
+ * Missing keys default to true.
+ */
+export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColumns = {} }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -193,7 +246,7 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     return localStorage.getItem('locationid') || '';
   });
 
-  // Load userlocations from sessionStorage to prefer friendly location name
+  // Load userlocations from sessionStorage
   const [locations, setLocations] = useState([]);
   useEffect(() => {
     const stored = sessionStorage.getItem('userlocations');
@@ -210,7 +263,7 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     loc => String(loc.location_id) === String(selectedId)
   )?.location_name || '';
 
-  // Fetch data when dates or location change (do NOT refetch on filter changes)
+  // Fetch data
   useEffect(() => {
     if (!selectedId) {
       console.warn("No locationid found in localStorage");
@@ -219,13 +272,11 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     }
 
     setLoading(true);
-
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/dispatchReport`, {
       params: {
         startDate: fromDate,
         endDate: toDate,
         location_id: selectedId
-        // intentionally NOT sending item_id/subcategory here so we get the full dataset and filter client-side
       }
     })
     .then(res => {
@@ -258,11 +309,11 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const locationnameKey = localStorage.getItem('locationname') || '';
   const institutionName = selectedLocationNameFromSession || (institutionMap[locationnameKey] || locationnameKey);
 
-  // Extract unique values for dropdowns (derived from raw data)
+  // Extract unique values for dropdowns
   const uniqueItems = [...new Set(data.map(row => row.item_name).filter(Boolean))];
   const uniqueCategories = [...new Set(data.map(row => row.category).filter(Boolean))];
 
-  // Apply client-side filter (fast, reliable)
+  // Filter client-side
   const filteredData = data.filter(row => {
     return (
       (selectedItem ? row.item_name === selectedItem : true) &&
@@ -270,25 +321,54 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
     );
   });
 
-  // Determine which columns to show:
-  // If an item is selected -> remove item name AND category columns.
-  // Else if a category is selected -> remove category only.
-  let showItemColumn = true;
-  let showCategoryColumn = true;
+  // columns default (all true)
+  const columns = {
+    sno: visibleColumns.sno !== undefined ? visibleColumns.sno : true,
+    dispatchDate: visibleColumns.dispatchDate !== undefined ? visibleColumns.dispatchDate : true,
+    item: visibleColumns.item !== undefined ? visibleColumns.item : true,
+    category: visibleColumns.category !== undefined ? visibleColumns.category : true,
+    quantity: visibleColumns.quantity !== undefined ? visibleColumns.quantity : true,
+    block_name: visibleColumns.block_name !== undefined ? visibleColumns.block_name : true,
+    sticker_no: visibleColumns.sticker_no !== undefined ? visibleColumns.sticker_no : true,
+    receiver: visibleColumns.receiver !== undefined ? visibleColumns.receiver : true,
+    incharge: visibleColumns.incharge !== undefined ? visibleColumns.incharge : true,
+    price: visibleColumns.price !== undefined ? visibleColumns.price : true,
+    total: visibleColumns.total !== undefined ? visibleColumns.total : true
+  };
+
+  // If an item is selected -> hide item and category columns (existing behavior).
+  // If category selected -> hide category column only.
+  // But if visibleColumns explicitly set, respect that toggle first, then apply filter logic to hide duplicates:
+  let showItemColumn = columns.item;
+  let showCategoryColumn = columns.category;
+
   if (selectedItem) {
     showItemColumn = false;
     showCategoryColumn = false;
   } else if (selectedCategory) {
     showCategoryColumn = false;
-    showItemColumn = true;
+    // keep item column as per columns.item
   }
 
-  // Columns: compute number of visible columns (used for colspan)
-  // Fixed columns count: SNO, Dispatch Date, Quantity, Block Name, Sticker No, Receiver, Incharge, Price, Total
-  const baseVisibleCount = 9; // SNO, Dispatch Date, Quantity, Block Name, Sticker No, Receiver, Incharge, Price, Total
-  const visibleColumnsCount = baseVisibleCount + (showItemColumn ? 1 : 0) + (showCategoryColumn ? 1 : 0);
+  // Build final columns map used for rendering
+  const finalColumns = {
+    sno: columns.sno,
+    dispatchDate: columns.dispatchDate,
+    item: showItemColumn,
+    category: showCategoryColumn,
+    quantity: columns.quantity,
+    block_name: columns.block_name,
+    sticker_no: columns.sticker_no,
+    receiver: columns.receiver,
+    incharge: columns.incharge,
+    price: columns.price,
+    total: columns.total
+  };
 
-  // Compute grand total (sum of 'total' field returned by backend). Use numeric safe sum
+  // Count visible columns for colspan calculations
+  const visibleCount = Object.values(finalColumns).filter(Boolean).length;
+
+  // Compute grand total (sum of 'total' field)
   const grandTotalAmount = filteredData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
 
   if (loading) {
@@ -320,7 +400,6 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
         <h1 style={{ margin: 0 }}>Dispatch Report</h1>
       </div>
 
-      {/* MetaInfo */}
       <MetaInfo>
         <div>
           <span className="meta-label">Institution</span>
@@ -353,7 +432,6 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
         <h2 style={{ visibility: 'hidden' }}>To: {formatDate(toDate)}</h2>
       </DateRange>
 
-      {/* Dropdown filters */}
       <FilterContainer>
         <div>
           <label>Item: </label>
@@ -378,50 +456,55 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       <ItemTable>
         <thead>
           <tr>
-            <th style={{width:"70px"}}>SNO</th>
-            <th>Dispatch Date</th>
-            {showItemColumn && <th>Item Name</th>}
-            {showCategoryColumn && <th>Category</th>}
-            <th>Quantity</th>
-            <th>Block Name</th>
-            <th>Sticker No</th>
-            <th>Receiver</th>
-            <th>Incharge</th>
-            <th>Price</th>
-            <th>Total</th>
+            {finalColumns.sno && <th style={{ width: "70px" }}>SNO</th>}
+            {finalColumns.dispatchDate && <th>Dispatch Date</th>}
+            {finalColumns.item && <th>Item Name</th>}
+            {finalColumns.category && <th>Category</th>}
+            {finalColumns.quantity && <th>Quantity</th>}
+            {finalColumns.block_name && <th>Block Name</th>}
+            {finalColumns.sticker_no && <th>Sticker No</th>}
+            {finalColumns.receiver && <th>Receiver</th>}
+            {finalColumns.incharge && <th>Incharge</th>}
+            {finalColumns.price && <th>Price</th>}
+            {finalColumns.total && <th>Total</th>}
           </tr>
         </thead>
         <tbody>
           {filteredData.length > 0 ? (
             filteredData.map((row, index) => (
               <tr key={index}>
-                <td>{index+1}</td>
-                <td>{formatDate(row.dispatch_date)}</td>
-                {showItemColumn && <td style={{ textAlign: 'left' }}>{row.item_name || '—'}</td>}
-                {showCategoryColumn && <td>{row.category || '—'}</td>}
-                <td>{Number(row.quantity) || 0}</td>
-                <td>{row.block_name || '—'}</td>
-                <td>{row.sticker_no || '—'}</td>
-                <td>{row.receiver || '—'}</td>
-                <td>{row.incharge || '—'}</td>
-                <td>{formatCurrency(row.price)}</td>
-                <td>{formatCurrency(row.total)}</td>
+                {finalColumns.sno && <td>{index + 1}</td>}
+                {finalColumns.dispatchDate && <td>{formatDate(row.dispatch_date)}</td>}
+                {finalColumns.item && <td style={{ textAlign: 'left' }}>{row.item_name || '—'}</td>}
+                {finalColumns.category && <td>{row.category || '—'}</td>}
+                {finalColumns.quantity && <td>{Number(row.quantity) || 0}</td>}
+                {finalColumns.block_name && <td>{row.block_name || '—'}</td>}
+                {finalColumns.sticker_no && <td>{row.sticker_no || '—'}</td>}
+                {finalColumns.receiver && <td>{row.receiver || '—'}</td>}
+                {finalColumns.incharge && <td>{row.incharge || '—'}</td>}
+                {finalColumns.price && <td>{formatCurrency(row.price)}</td>}
+                {finalColumns.total && <td>{formatCurrency(row.total)}</td>}
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan={visibleColumnsCount} style={{ textAlign: 'center' }}>No data available</td>
+              <td colSpan={Math.max(1, visibleCount)} style={{ textAlign: 'center' }}>No data available</td>
             </tr>
           )}
 
           {/* End of Report + Grand Total row */}
           <tr>
-            {/* We reserve last two columns for GRAND TOTAL label and value */}
-            <td colSpan={Math.max(1, visibleColumnsCount - 2)} style={{ textAlign: "left", fontWeight: "bold", paddingLeft: 12 }}>
+            <td colSpan={Math.max(1, visibleCount - 2)} style={{ textAlign: "left", fontWeight: "bold", paddingLeft: 12 }}>
               END OF REPORT
             </td>
-            <td style={{ textAlign: "right", fontWeight: "bold", paddingRight: 12 }}>GRAND TOTAL</td>
-            <td style={{ fontWeight: "bold" }}>{formatCurrency(grandTotalAmount)}</td>
+
+            <td colSpan="1" style={{ textAlign: "right", fontWeight: "bold", paddingRight: 12 }}>
+              GRAND TOTAL
+            </td>
+
+            <td style={{ fontWeight: "bold" }}>
+              {formatCurrency(grandTotalAmount)}
+            </td>
           </tr>
         </tbody>
       </ItemTable>

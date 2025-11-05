@@ -43,11 +43,14 @@ const FilterContainer = styled.div`
 `;
 
 /* Table */
+/* Replace your current ItemTable with this */
 const ItemTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-family: 'Helvetica Neue', Arial, sans-serif;
-  table-layout: fixed;
+
+  /* Let the browser size columns naturally so item can expand */
+  table-layout: auto;
   background: white;
 
   thead th {
@@ -56,19 +59,21 @@ const ItemTable = styled.table`
     z-index: 2;
     background-color: #164863;
     color: #fff;
-    padding: 12px;
+    padding: 10px;             /* slightly reduced */
     font-size: 14px;
     font-weight: 700;
     border-bottom: 2px solid rgba(0,0,0,0.08);
   }
 
+  /* default: compact cells (other columns) */
   th, td {
     border: 1px solid #e6e6e6;
-    padding: 12px 10px;
-    vertical-align: middle; /* key: vertically center */
-    font-size: 15px;
-    overflow-wrap: break-word;
-    word-break: break-word;
+    padding: 6px 8px;          /* <- reduced from 12px */
+    vertical-align: middle;
+    font-size: 14px;
+    overflow: hidden;
+    white-space: nowrap;       /* keep most columns single-line */
+    text-overflow: ellipsis;
   }
 
   tbody tr {
@@ -83,26 +88,47 @@ const ItemTable = styled.table`
     background-color: #f1fbff;
   }
 
-  /* column classes for alignment */
-  td.left, th.left { text-align: left; }
+  /* alignment classes (your JSX already uses these) */
+  td.left, th.left { text-align: left; white-space: normal; }
   td.center, th.center { text-align: center; }
   td.right, th.right { text-align: right; }
 
-  /* column width hints (min-widths keep layout stable) */
-  th.sno { width: 60px; min-width: 60px; }
-  th.date { width: 120px; min-width: 110px; }
-  th.shop { width: 220px; min-width: 150px; }
-  th.item { width: 300px; min-width: 150px; }
-  th.category { width: 160px; min-width: 120px; }
-  th.qty { width: 80px; min-width: 60px; }
-  th.price { width: 100px; min-width: 80px; }
-  th.total { width: 120px; min-width: 100px; }
+  /* Narrow / fixed-ish columns to keep them compact */
+  th.sno, td.sno { width: 60px; min-width: 48px; }
+  th.date, td.date { width: 120px; min-width: 100px; }
+  th.qty, td.qty { width: 80px; min-width: 60px; }
+  th.price, td.price { width: 100px; min-width: 80px; }
+  th.total, td.total { width: 120px; min-width: 100px; }
+  th.shop, td.shop { width: 220px; min-width: 120px; } /* keep shop narrower */
 
+  /* ITEM column gets flexible space and wraps when needed */
+  th.item, td.item {
+    text-align: left;
+    padding: 8px 10px;        /* slightly larger for readability */
+    white-space: normal;      /* allow wrap for item names */
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: 15px;
+  }
+
+  /* Category or other multi-word columns — allow wrap but stay compact */
+  th.category, td.category {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* Print: smaller font, allow wrapping (avoid ellipsis on paper) */
   @media print {
-    th, td { font-size: 11px; padding: 6px; }
-    thead th { position: static; } /* avoid sticky in print */
+    thead th { position: static; } /* avoid sticky headers in print */
+    th, td {
+      padding: 4px 6px;
+      font-size: 11px;
+      white-space: normal;   /* allow full text in print */
+    }
   }
 `;
+
 
 /* Meta section */
 const MetaInfo = styled.div`
@@ -174,7 +200,7 @@ const institutionMap = {
   "RMK Patashala": "R.M.K. Patashala"
 };
 
-export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
+export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColumns = {} }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -282,14 +308,20 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
   const locationnameKey = localStorage.getItem('locationname') || '';
   const institutionName = selectedLocationNameFromSession || (institutionMap[locationnameKey] || locationnameKey);
 
-  // Determine which columns to show
-  const showItemColumn = !selectedItem;
-  const showCategoryColumn = !selectedItem && !selectedSubcategory;
+  // Determine which columns to show based on visibleColumns prop (default to true)
+  const columns = {
+    sno: true, // always show serial no
+    date: visibleColumns.date !== undefined ? visibleColumns.date : true,
+    shop: visibleColumns.shop !== undefined ? visibleColumns.shop : true,
+    item: visibleColumns.item !== undefined ? visibleColumns.item : true,
+    category: visibleColumns.category !== undefined ? visibleColumns.category : true,
+    qty: visibleColumns.qty !== undefined ? visibleColumns.qty : true,
+    price: visibleColumns.price !== undefined ? visibleColumns.price : true,
+    total: visibleColumns.total !== undefined ? visibleColumns.total : true
+  };
 
   // Visible columns count for colspan logic:
-  // Base columns: SL.NO, DATE, SHOP NAME, QTY, PRICE, TOTAL = 6 always visible
-  const baseCols = 6;
-  const visibleCols = baseCols + (showItemColumn ? 1 : 0) + (showCategoryColumn ? 1 : 0);
+  const visibleCols = Object.values(columns).filter(Boolean).length;
 
   if (loading) {
     return (
@@ -377,14 +409,14 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
       <ItemTable>
         <thead>
           <tr>
-            <th className="sno center">SL.NO</th>
-            <th className="date center">DATE</th>
-            <th className="shop left">SHOP NAME</th>
-            {showItemColumn && <th className="item left">ITEM NAME</th>}
-            {showCategoryColumn && <th className="category left">CATEGORY</th>}
-            <th className="qty right">QTY</th>
-            <th className="price right">PRICE</th>
-            <th className="total right">TOTAL</th>
+            {columns.sno && <th className="sno center">SL.NO</th>}
+            {columns.date && <th className="date center">DATE</th>}
+            {columns.shop && <th className="shop left">SHOP NAME</th>}
+            {columns.item && <th className="item left">ITEM NAME</th>}
+            {columns.category && <th className="category left">CATEGORY</th>}
+            {columns.qty && <th className="qty right">QTY</th>}
+            {columns.price && <th className="price right">PRICE</th>}
+            {columns.total && <th className="total right">TOTAL</th>}
           </tr>
         </thead>
 
@@ -392,19 +424,19 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate }, ref) => {
           {filteredData.length > 0 ? (
             filteredData.map((row, index) => (
               <tr key={index}>
-                <td className="center">{index + 1}</td>
-                <td className="center">{formatDate(row.purchase_date)}</td>
-                <td className="left">{row.shop_name || '—'}</td>
-                {showItemColumn && <td className="left">{row.item_name || '—'}</td>}
-                {showCategoryColumn && <td className="left">{row.category || '—'}</td>}
-                <td className="right">{Number(row.quantity) || 0}</td>
-                <td className="right">{formatNumber(row.price)}</td>
-                <td className="right">{formatNumber(row.total)}</td>
+                {columns.sno && <td className="center">{index + 1}</td>}
+                {columns.date && <td className="center">{formatDate(row.purchase_date)}</td>}
+                {columns.shop && <td className="left">{row.shop_name || '—'}</td>}
+                {columns.item && <td className="left">{row.item_name || '—'}</td>}
+                {columns.category && <td className="left">{row.category || '—'}</td>}
+                {columns.qty && <td className="right">{Number(row.quantity) || 0}</td>}
+                {columns.price && <td className="right">{formatNumber(row.price)}</td>}
+                {columns.total && <td className="right">{formatNumber(row.total)}</td>}
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan={visibleCols} style={{ textAlign: 'center', padding: 20 }}>
+              <td colSpan={Math.max(1, visibleCols)} style={{ textAlign: 'center', padding: 20 }}>
                 No data available
               </td>
             </tr>

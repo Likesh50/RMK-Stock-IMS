@@ -1,39 +1,10 @@
-// PrintAvailableStock.jsx
 import React, { useRef } from 'react';
 import ReactToPrint from 'react-to-print';
-import styled, { createGlobalStyle } from 'styled-components';
+import styled from 'styled-components';
 import { useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import AvailableStock from './AvailableStock'; // adjust path if needed
-
-/* Global print helper: hide everything outside .printable-area when printing */
-const PrintHelper = createGlobalStyle`
-  @media print {
-    /* hide entire app by default */
-    body * {
-      visibility: hidden !important;
-    }
-
-    /* make printable area visible */
-    .printable-area, .printable-area * {
-      visibility: visible !important;
-    }
-
-    /* make printable area occupy the page */
-    .printable-area {
-      position: absolute !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-
-    /* remove page margins in some browsers if desired (optional) */
-    @page { margin: 12mm; }
-  }
-`;
 
 const Test = styled.div`
   height: 100%;
@@ -52,7 +23,7 @@ const ButtonContainer = styled.div`
   margin-top: 18px;
 
   @media print {
-    display: none; /* Hide the UI buttons when printing (we use print header inside AvailableStock) */
+    display: none; /* hide UI when printing */
   }
 `;
 
@@ -61,23 +32,20 @@ const ReportContainer = styled.div`
   width: 100%;
   max-height: 80vh;
   overflow-y: auto;
+  /* Ensure printed content uses full width */
+  .print-root {
+    width: 100%;
+  }
 `;
 
-/* Buttons */
 const PrintButton = styled.button`
   background-color: #4CAF50;
   border: none;
   color: white;
   padding: 12px 22px;
-  text-align: center;
   font-size: 15px;
   cursor: pointer;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  transition: background-color 0.2s, box-shadow 0.2s;
-
-  &:hover { background-color: #45a049; }
-  &:active { transform: translateY(1px); }
 `;
 
 const ExportButton = styled.button`
@@ -85,31 +53,25 @@ const ExportButton = styled.button`
   border: none;
   color: white;
   padding: 12px 22px;
-  text-align: center;
   font-size: 15px;
   cursor: pointer;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  transition: background-color 0.2s, box-shadow 0.2s;
-
-  &:hover { background-color: #1976D2; }
-  &:active { transform: translateY(1px); }
 `;
 
 const PrintAvailableStock = () => {
-  const reportRef = useRef();
+  const reportRef = useRef(null);
   const location = useLocation();
   const { fromDate, toDate } = location.state || {};
 
   const handleExport = () => {
     if (!reportRef.current) {
-      console.error('Report ref not available');
+      alert('Report not ready to export. Please wait until data loads.');
       return;
     }
 
     const table = reportRef.current.querySelector('table');
     if (!table) {
-      console.error('No table found inside report to export');
+      alert('No table found to export. Make sure data has loaded.');
       return;
     }
 
@@ -121,32 +83,32 @@ const PrintAvailableStock = () => {
       saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'AvailableStock.xlsx');
     } catch (err) {
       console.error('Export failed', err);
+      alert('Export failed. See console for details.');
     }
   };
 
+  // Small pageStyle to preserve colors and set margins
+  const pageStyle = `
+    @page { margin: 12mm; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  `;
+
   return (
     <Test>
-      {/* inject print helper CSS */}
-      <PrintHelper />
-
       <ButtonContainer>
         <ReactToPrint
           trigger={() => <PrintButton>Print Available Stock</PrintButton>}
           content={() => reportRef.current}
-          pageStyle={`
-            @page { margin: 12mm; }
-            @media print {
-              body { -webkit-print-color-adjust: exact; }
-            }
-          `}
+          pageStyle={pageStyle}
         />
         <ExportButton onClick={handleExport}>Export to Excel</ExportButton>
       </ButtonContainer>
 
       <ReportContainer>
-        {/* IMPORTANT: .printable-area ensures only this content prints.
-            forwardRef required in AvailableStock for printing/exporting */}
-        <div className="printable-area">
+        {/* Attach ref directly to AvailableStock (it uses forwardRef) */}
+        <div className="print-root">
           <AvailableStock ref={reportRef} fromDate={fromDate} toDate={toDate} />
         </div>
       </ReportContainer>

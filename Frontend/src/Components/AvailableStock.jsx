@@ -1,114 +1,92 @@
-// AvailableStock.jsx
-import React, { useState, useEffect, forwardRef } from 'react';
+import React, { useEffect, useState, forwardRef } from 'react';
 import styled from 'styled-components';
 import Axios from 'axios';
 import moment from 'moment';
-import Logo from '../assets/Logo.png'; // adjust path if needed
-
-const THEME_COLOR = '#164863';
 
 const Container = styled.div`
-  font-family: Arial, Helvetica, sans-serif;
-  padding: 18px;
-  background: #fff;
-
   h1 {
-    color: ${THEME_COLOR};
+    color: #164863;
     text-align: center;
-    margin: 8px 0 12px 0;
-  }
-
-  @media print {
-    margin: 0;
-    padding: 6px;
-    background: #fff;
-    color: #000;
+    margin: 8px 0 14px;
   }
 `;
 
-const TopBar = styled.div`
+const MetaInfo = styled.div`
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 50px;
+  margin: 10px 0 15px 0;
+  color: #164863;
+  text-align: left;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 180px;
+  }
+
+  .meta-label {
+    font-weight: 700;
+    font-size: 16px;
+    color: #164863;
+  }
+
+  .meta-value {
+    font-weight: 500;
+    font-size: 16px;
+  }
+
+  @media print {
+    justify-content: space-between;
+    gap: 10px;
+    .meta-label,
+    .meta-value {
+      font-size: 17px;
+    }
+  }
+`;
+
+const Controls = styled.div`
+  display: flex;
   align-items: center;
-  gap: 20px;
+  justify-content: center;
+  gap: 12px;
   margin: 12px 0;
   flex-wrap: wrap;
 
-  @media print {
-    display: none;
-  }
-`;
-
-const SearchContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
+  select,
   .search-input {
-    padding: 10px;
-    border: 1px solid ${THEME_COLOR};
+    padding: 8px 10px;
     border-radius: 4px;
-    font-size: 16px;
-    width: 360px;
-    box-sizing: border-box;
-    background-color: #fff;
-
-    &::placeholder { color: #888; }
-
-    &:focus {
-      outline: none;
-      box-shadow: 0 0 6px rgba(22,72,99,0.12);
-      border-color: ${THEME_COLOR};
-    }
+    border: 1px solid #164863;
+    font-size: 14px;
+    background: #f4f4f4;
+    outline: none;
   }
 
   .search-button {
-    padding: 10px 16px;
-    border: none;
+    padding: 8px 12px;
     border-radius: 4px;
-    background-color: #4caf50;
-    color: white;
-    font-size: 15px;
+    border: none;
+    background: #4caf50;
+    color: #fff;
     cursor: pointer;
+  }
 
-    &:hover { background-color: #45a049; }
-    &:active { transform: translateY(1px); }
+  .clear-button {
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: none;
+    background: #f44336;
+    color: #fff;
+    cursor: pointer;
   }
 
   @media print {
-    display: none;
+    display: none; /* hide filters in print */
   }
-`;
-
-const InstitutionBlock = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  font-weight: 700;
-  color: ${THEME_COLOR};
-  text-align: center;
-  margin-bottom: 6px;
-
-  .label { font-size: 18px; font-weight: 700; color: #666; }
-  .value { font-size: 16px; color: ${THEME_COLOR}; }
-
-  @media print {
-    .label { font-size: 11px; color: #333; }
-    .value { font-size: 13px; color: #000; }
-  }
-`;
-
-const PrintHeader = styled.div`
-  display: none;
-  text-align: center;
-  margin-bottom: 12px;
-
-  img { width: 140px; height: auto; margin-bottom: 6px; }
-  h1 { font-size: 20px; margin: 0; color: ${THEME_COLOR}; }
-
-  @media print { display: block; }
 `;
 
 const TableHeader = styled.table`
@@ -116,59 +94,47 @@ const TableHeader = styled.table`
   border-collapse: collapse;
   margin-top: 8px;
   font-family: Arial, sans-serif;
-  table-layout: fixed;
-  background: #fff;
 
-  thead th {
-    background-color: ${THEME_COLOR};
+  th {
+    background-color: #164863;
     color: white;
     font-size: 14px;
-    font-weight: 700;
-    padding: 10px;
-    border: 1px solid #e6e6e6;
+    font-weight: bold;
+    padding: 8px;
+    border: 1px solid #ddd;
     text-align: center;
-    overflow-wrap: break-word;
-    word-break: break-word;
   }
 
   td {
-    padding: 10px;
-    border: 1px solid #e6e6e6;
+    padding: 8px;
+    border: 1px solid #ddd;
     text-align: center;
     font-size: 14px;
-    overflow-wrap: break-word;
-    word-break: break-word;
   }
 
   tbody tr:nth-child(even) {
-    background-color: #fbfbfb;
+    background-color: #f4f4f4;
+  }
+
+  th.sno,
+  td.sno {
+    width: 60px;
+    min-width: 50px;
+  }
+
+  th.item,
+  td.item {
+    text-align: left;
+    padding-left: 12px;
   }
 
   @media print {
-    thead th { -webkit-print-color-adjust: exact; color: #fff; }
-    th, td { font-size: 12px; padding: 8px; color: #000; }
-    tbody tr:nth-child(even) { background-color: transparent; }
+    th,
+    td {
+      padding: 6px;
+      font-size: 12px;
+    }
   }
-`;
-
-const EmptyRow = styled.tr`
-  td { padding: 20px; text-align: center; color: #555; }
-`;
-
-const LocalPrintButton = styled.button`
-  background-color: #4CAF50;
-  border: none;
-  color: white;
-  padding: 8px 14px;
-  font-size: 13px;
-  border-radius: 6px;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-
-  &:hover { background-color: #45a049; }
-  &:active { transform: translateY(1px); }
-
-  @media print { display: none; }
 `;
 
 const institutionMap = {
@@ -179,17 +145,24 @@ const institutionMap = {
   "RMK Patashala": "R.M.K. Patashala"
 };
 
-const AvailableStock = forwardRef((props, ref) => {
-  const { fromDate, toDate } = props || {};
+const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
   const [curr, setCurr] = useState([]);
   const [filteredCurr, setFilteredCurr] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState([]);
 
   useEffect(() => {
+    // Load session user locations to resolve institution name
     const stored = sessionStorage.getItem('userlocations');
     if (stored) {
-      try { setLocations(JSON.parse(stored)); } catch (e) { /* ignore */ }
+      try {
+        setLocations(JSON.parse(stored));
+      } catch (err) {
+        console.error('Invalid session userlocations JSON:', err);
+      }
     }
   }, []);
 
@@ -199,114 +172,173 @@ const AvailableStock = forwardRef((props, ref) => {
     loc => String(loc.location_id) === String(selectedLocationId)
   )?.location_name || '';
 
-  const institutionName = selectedLocationNameFromSession || (institutionMap[locationnameKey] || locationnameKey || '—');
+  const institutionName =
+    selectedLocationNameFromSession ||
+    institutionMap[locationnameKey] ||
+    locationnameKey;
 
   useEffect(() => {
-    const locId = parseInt(window.localStorage.getItem('locationid'), 10);
-    const url = `${import.meta.env.VITE_RMK_MESS_URL}/stocks/availablestock?location_id=${locId || ''}`;
+    const locationId = parseInt(localStorage.getItem('locationid'), 10);
+    if (!locationId) return;
 
-    Axios.get(url)
+    setLoading(true);
+    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/stocks/availablestock?location_id=${locationId}`)
       .then(res => {
-        const rows = Array.isArray(res.data?.data) ? res.data.data : [];
-        const data = rows.map(stock => ({
+        const apiData = res.data?.data || [];
+
+        // Remove items with quantity ≤ 0
+        const nonZero = apiData.filter(item => Number(item.quantity) > 0);
+
+        const data = nonZero.map(stock => ({
           ...stock,
           daysSincePurchase: calculateDaysSince(stock.purchase_date),
+          daysLeftToExpire: calculateDaysLeft(stock.expiry_date),
         }));
+
+        // Get unique categories
+        const uniqCats = Array.from(
+          new Set(data.map(d => (d.category || '').trim()).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b));
+
         setCurr(data);
         setFilteredCurr(data);
+        setCategories(uniqCats);
       })
       .catch(err => {
-        console.error("Error fetching stock data:", err);
+        console.error('Error fetching stock data:', err);
         setCurr([]);
         setFilteredCurr([]);
-      });
+        setCategories([]);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const calculateDaysSince = (purchaseDate) => {
+  const calculateDaysLeft = expiryDate => {
+    if (!expiryDate) return null;
+    const today = moment().startOf('day');
+    const expiry = moment(expiryDate).startOf('day');
+    return expiry.diff(today, 'days');
+  };
+
+  const calculateDaysSince = purchaseDate => {
     if (!purchaseDate) return null;
-    const today = moment();
-    const purchase = moment(purchaseDate);
+    const today = moment().startOf('day');
+    const purchase = moment(purchaseDate).startOf('day');
     return today.diff(purchase, 'days');
   };
 
-  const handleSearch = (e) => {
-    const searchValue = e?.target?.value ?? '';
-    setSearchTerm(searchValue);
-    const filteredData = curr.filter(item => {
-      const itemName = (item.itemName || '').toString().toLowerCase();
-      const category = (item.category || '').toString().toLowerCase();
-      return itemName.includes(searchValue.toLowerCase()) || category.includes(searchValue.toLowerCase());
+  useEffect(() => {
+    const lower = (searchTerm || '').toLowerCase().trim();
+    const filtered = curr.filter(item => {
+      if (selectedCategory && item.category !== selectedCategory) return false;
+      if (!lower) return true;
+      return (
+        (item.itemName && item.itemName.toLowerCase().includes(lower)) ||
+        (item.subCategory && item.subCategory.toLowerCase().includes(lower))
+      );
     });
-    setFilteredCurr(filteredData);
-  };
+    setFilteredCurr(filtered);
+  }, [curr, searchTerm, selectedCategory]);
 
-  const formatNumber = (number) => {
-    if (number == null || number === '') return '0';
-    const n = Number(number);
-    if (Number.isNaN(n)) return '0';
-    return n.toFixed(0);
+  const formatNumber = number => {
+    if (number === null || number === undefined || Number.isNaN(Number(number)))
+      return '-';
+    return Number(number).toFixed(0);
   };
 
   return (
     <Container ref={ref}>
-      <PrintHeader>
-        <img src={Logo} alt="Logo" />
-        <h1>INVENTORY MANAGEMENT SYSTEM</h1>
-      </PrintHeader>
-
       <h1>AVAILABLE STOCK</h1>
 
-      <InstitutionBlock>
-        <span className="label">Institution</span>
-        <span className="value">{institutionName || '—'}</span>
-      </InstitutionBlock>
+      {/* Meta Info visible for print */}
+      <MetaInfo>
+        <div>
+          <span className="meta-label">Institution</span>
+          <span className="meta-value">{institutionName || '—'}</span>
+        </div>
+        <div>
+          <span className="meta-label">Report Date</span>
+          <span className="meta-value">
+            {moment().format('DD-MM-YYYY')}
+          </span>
+        </div>
+        
+        <div>
+          <span className="meta-label">Category</span>
+          <span className="meta-value">{selectedCategory || 'All'}</span>
+        </div>
+      </MetaInfo>
 
-      <TopBar>
-        <SearchContainer>
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Enter item name / Category name"
-            value={searchTerm}
-            onChange={handleSearch}
-            aria-label="Search input"
-          />
-          <button
-            className="search-button"
-            onClick={() => handleSearch({ target: { value: searchTerm } })}
-            aria-label="Search"
-          >
-            Search
-          </button>
-        </SearchContainer>
+      <Controls>
+        <select
+          value={selectedCategory}
+          onChange={e => setSelectedCategory(e.target.value)}
+        >
+          <option value="">All Categories</option>
+          {categories.map((cat, i) => (
+            <option key={i} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
 
-        <LocalPrintButton onClick={() => window.print()}>Print</LocalPrintButton>
-      </TopBar>
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search item or subcategory"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
 
-      <TableHeader>
-        <thead>
-          <tr>
-            <th style={{width: '35%'}}>ITEM</th>
-            <th style={{width: '20%'}}>SUB CATEGORY</th>
-            <th style={{width: '20%'}}>CATEGORY</th>
-            <th style={{width: '25%'}}>QUANTITY</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredCurr && filteredCurr.length > 0 ? filteredCurr.map((item, index) => (
-            <tr key={index}>
-              <td style={{ textAlign: 'left' }}>{item.itemName || '—'}</td>
-              <td style={{ textAlign: 'left' }}>{item.subCategory || item.sub_category || '—'}</td>
-              <td style={{ textAlign: 'left' }}>{item.category || '—'}</td>
-              <td style={{ textAlign: 'center' }}>{formatNumber(item.quantity) + (item.unit ? ` ${item.unit}` : '')}</td>
+        <button className="search-button">Search</button>
+        <button className="clear-button" onClick={() => {
+          setSelectedCategory('');
+          setSearchTerm('');
+        }}>
+          Clear
+        </button>
+      </Controls>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 20 }}>Loading...</div>
+      ) : (
+        <TableHeader>
+          <thead>
+            <tr>
+              <th className="sno">S.No</th>
+              <th className="item">ITEM</th>
+              <th>SUB CATEGORY</th>
+              {!selectedCategory && <th>CATEGORY</th>}
+              <th>QUANTITY</th>
             </tr>
-          )) : (
-            <EmptyRow>
-              <td colSpan="4">No data available</td>
-            </EmptyRow>
-          )}
-        </tbody>
-      </TableHeader>
+          </thead>
+          <tbody>
+            {filteredCurr.length > 0 ? (
+              filteredCurr.map((item, index) => (
+                <tr key={index}>
+                  <td className="sno">{index + 1}</td>
+                  <td className="item">{item.itemName || '-'}</td>
+                  <td>{item.subCategory || '-'}</td>
+                  {!selectedCategory && <td>{item.category || '-'}</td>}
+                  <td>
+                    {formatNumber(item.quantity) +
+                      (item.unit ? ` ${item.unit}` : '')}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={selectedCategory ? 4 : 5}
+                  style={{ textAlign: 'center' }}
+                >
+                  No data available
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </TableHeader>
+      )}
     </Container>
   );
 });
