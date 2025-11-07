@@ -165,8 +165,8 @@ const SideBar = () => {
             Item List
           </Link>
         </SidebarItem>
-        <SidebarItem className={isActive('/dashboard/itemtable')}>
-          <Link to="itemtable">
+        <SidebarItem className={isActive('/dashboard/productStock')}>
+          <Link to="productStock">
             <img src={Itemstock} width="40px" height="40px" alt="Reports" />
             Item Stock
           </Link>

@@ -397,7 +397,7 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
       </PrintHeader>
 
       <div style={{ textAlign: 'center' }}>
-        <h1 style={{ margin: 0 }}>Dispatch Report</h1>
+        <h1 style={{ margin: 0,fontSize:22 }}>Dispatch Report</h1>
       </div>
 
       <MetaInfo>

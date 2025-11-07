@@ -44,7 +44,7 @@ const ItemTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-family: Arial, sans-serif;
-  table-layout: auto;
+  table-layout: auto; /* allow item name to grow naturally */
 
   th, td {
     border: 1px solid #ddd;
@@ -68,25 +68,30 @@ const ItemTable = styled.table`
   tbody tr:nth-child(even) { background-color: #f1f1f1; }
   tbody tr:hover { background-color: #e0f7fa; color: #000; }
 
-  th.sno, td.sno { width: 65px; min-width: 50px; }
-  th.date, td.date { width: 130px; min-width: 100px; }
+  /* Compact fixed-width columns */
+  th.sno, td.sno { width: 60px; min-width: 50px; }
+  th.date, td.date { width: 110px; min-width: 90px; }
   th.qty, td.qty { width: 80px; min-width: 60px; }
 
+  /* ITEM column: flexible and wraps as needed */
   th.item, td.item {
     text-align: left;
     padding: 8px 10px;
+    min-width:150px;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
     font-size: 15px;
   }
 
+  /* The problematic columns — fixed now */
   th.category, td.category,
   th.received_fr, td.received_fr,
   th.issued_to, td.issued_to {
-    white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    white-space: nowrap;        /* keep on one line */
+    overflow: hidden;           /* hide overflow */
+    text-overflow: ellipsis;    /* add ... if text too long */
+    max-width: 140px;           /* keep column narrow */
   }
 
   @media print {
@@ -94,7 +99,7 @@ const ItemTable = styled.table`
     th, td {
       padding: 4px 6px;
       font-size: 11px;
-      white-space: normal;
+      white-space: normal; /* allow wrapping in print */
     }
   }
 `;
@@ -285,7 +290,7 @@ export const TransferReport = React.forwardRef(({ fromDate, toDate, visibleColum
           </PrintHeader>
 
           <div style={{ textAlign: 'center' }}>
-            <h1 style={{ margin: 0 }}>Stock Transfer</h1>
+            <h1 style={{ margin: 0, fontSize:22 }}>Stock Transfer</h1>
           </div>
 
           <MetaInfo>

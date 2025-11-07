@@ -158,8 +158,8 @@ const MetaInfo = styled.div`
   }
 
   @media print {
-    gap: 10px;
-    margin: 10px 0 10px 0;
+    gap: 5px;
+    margin: 5px 0 5px 0;
     .meta-label, .meta-value { font-size: 14px; }
   }
 `;
@@ -349,7 +349,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
       </PrintHeader>
 
       <div style={{ textAlign: 'center', marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>Purchase Report</h1>
+        <h1 style={{ margin: 0,fontSize:22 }}>Purchase Report</h1>
       </div>
 
       <MetaInfo>
