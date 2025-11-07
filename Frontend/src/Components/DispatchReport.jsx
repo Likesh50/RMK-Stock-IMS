@@ -205,7 +205,7 @@ const MetaInfo = styled.div`
 
     .meta-label,
     .meta-value {
-      font-size: 18px;
+      font-size: 14px;
     }
 
     div {

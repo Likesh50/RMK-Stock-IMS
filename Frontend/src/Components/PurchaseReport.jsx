@@ -160,7 +160,7 @@ const MetaInfo = styled.div`
   @media print {
     gap: 10px;
     margin: 10px 0 10px 0;
-    .meta-label, .meta-value { font-size: 20px; }
+    .meta-label, .meta-value { font-size: 14px; }
   }
 `;
 

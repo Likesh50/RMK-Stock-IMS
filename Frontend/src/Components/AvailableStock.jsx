@@ -43,7 +43,7 @@ const MetaInfo = styled.div`
     gap: 10px;
     .meta-label,
     .meta-value {
-      font-size: 17px;
+      font-size: 14px;
     }
   }
 `;

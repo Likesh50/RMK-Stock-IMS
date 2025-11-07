@@ -143,7 +143,7 @@ const MetaInfo = styled.div`
     justify-content: space-between;
     gap: 10px;
     margin: 10px 0 15px 0;
-    .meta-label, .meta-value { font-size: 18px; }
+    .meta-label, .meta-value { font-size: 14px; }
     div { min-width: auto; align-items: flex-start; }
   }
 `;
