@@ -8,9 +8,6 @@ function DashBoard() {
     const [barGraphData, setBarGraphData] = useState([]);
     const [pieChartData, setPieChartData] = useState([]);
     const [lineChartData, setLineChartData] = useState([]);
-
-    
-
     
     useEffect(() => {
        

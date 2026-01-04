@@ -439,7 +439,7 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
 
         {/* Screen header */}
         <div style={{ textAlign: 'center', marginBottom: 8 }}>
-          <Title>Stock Transfer / Item Movement</Title>
+          <Title>Stock Ledger</Title>
         </div>
 
         {/* Meta information */}

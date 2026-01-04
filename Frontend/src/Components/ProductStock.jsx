@@ -16,6 +16,11 @@ import {
 } from '@mui/material';
 import dayjs from 'dayjs';
 
+/* 🔹 REQUIRED FOR PRINT + EXCEL */
+import ReactToPrint from 'react-to-print';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+
 /* === Styled components (visual upgrades) === */
 const PageWrap = styled.div`
   min-height: 100vh;
@@ -194,11 +199,40 @@ const LoaderOverlay = styled.div`
   justify-content:center;
   z-index: 999;
 `;
+const ButtonBar = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 10px 0;
+
+  @media print {
+    display: none;
+  }
+`;
+const PrintButton = styled.button`
+  background-color: #4CAF50; /* Green */
+  border: none;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+`;
+
+const ExportButton = styled.button`
+  background-color: #2196F3; /* Blue */
+  border: none;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+`;
+
 
 /* END styled components */
 
 
 /* === Component === */
+
 export const ProductStock = () => {
   const [categories, setCategories] = useState([]); // strings
   const [itemsByCategory, setItemsByCategory] = useState([]); // { label, value }
@@ -207,6 +241,7 @@ export const ProductStock = () => {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]); // stock rows from API
   const [showDialog, setShowDialog] = useState(false);
+  const printRef = React.useRef(null);
   const [locationsFromSession, setLocationsFromSession] = useState([]);
   const selectedLocationId = localStorage.getItem('locationid') || '';
   const selectedLocationName = (locationsFromSession.find(l => String(l.location_id) === String(selectedLocationId)) || {}).location_name || '';
@@ -288,6 +323,7 @@ export const ProductStock = () => {
     }
   };
 
+
   useEffect(() => {
     if (selectedItem && selectedItem.value) {
       fetchStockForItem(selectedItem.value);
@@ -296,10 +332,23 @@ export const ProductStock = () => {
     }
   }, [selectedItem]);
 
+  const exportExcel = () => {
+    const table = printRef.current.querySelector('table');
+    if (!table) {
+      toast.error('No data to export');
+      return;
+    }
+    const ws = XLSX.utils.table_to_sheet(table);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Product Stock');
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([buf]), 'ProductStock.xlsx');
+  };
+
   const grandTotal = rows.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
 
   return (
-    <PageWrap>
+    <PageWrap ref={printRef}>
 
       <Container>
         <Title>Stock Across Locations</Title>
@@ -308,6 +357,15 @@ export const ProductStock = () => {
           <div>Location: <span style={{fontWeight:700, marginLeft:8}}>{selectedLocationName || '—'}</span></div>
           <div>Report Date: <span style={{fontWeight:700, marginLeft:8}}>{dayjs().format('DD/MM/YYYY')}</span></div>
         </SubHeader>
+
+        <ButtonBar>
+          <ReactToPrint
+            trigger={() => <PrintButton>Print Product Stock</PrintButton>}
+            content={() => printRef.current}
+          />
+          <ExportButton onClick={exportExcel}>Export to Excel</ExportButton>
+        </ButtonBar>
+
 
         <ControlsCard>
           <Controls>

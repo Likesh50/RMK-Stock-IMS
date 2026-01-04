@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import Axios from 'axios';
 import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
+import { Autocomplete, TextField } from '@mui/material';
+
 
 const Container = styled.div`
   @media print {
@@ -173,7 +175,7 @@ const institutionMap = {
 
 const MetaInfo = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 50px;
   margin: 20px 0 30px 0;
@@ -184,7 +186,7 @@ const MetaInfo = styled.div`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    min-width: 180px;
+    white-space : nowrap;
   }
 
   .meta-label {
@@ -236,6 +238,10 @@ const MetaInfo = styled.div`
 export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColumns = {} }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  //blocks
+  const [selectedBlock, setSelectedBlock] = useState('');
+
 
   // Filters (client-side)
   const [selectedItem, setSelectedItem] = useState('');
@@ -312,12 +318,16 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
   // Extract unique values for dropdowns
   const uniqueItems = [...new Set(data.map(row => row.item_name).filter(Boolean))];
   const uniqueCategories = [...new Set(data.map(row => row.category).filter(Boolean))];
+  const uniqueBlocks = [...new Set(
+  data.map(row => row.block_name).filter(Boolean)
+)];
 
   // Filter client-side
   const filteredData = data.filter(row => {
     return (
       (selectedItem ? row.item_name === selectedItem : true) &&
-      (selectedCategory ? row.category === selectedCategory : true)
+      (selectedCategory ? row.category === selectedCategory : true) &&
+      (selectedBlock ? row.block_name === selectedBlock : true)
     );
   });
 
@@ -425,6 +435,10 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
           <span className="meta-label">Category</span>
           <span className="meta-value">{selectedCategory || 'All'}</span>
         </div>
+        <div>
+          <span className="meta-label">Block</span>
+          <span className="meta-value">{selectedBlock || 'All'}</span>
+        </div>
       </MetaInfo>
 
       <DateRange>
@@ -448,6 +462,18 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
             <option value="">All</option>
             {uniqueCategories.map((cat, i) => (
               <option key={i} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label>Block: </label>
+          <select
+            value={selectedBlock}
+            onChange={(e) => setSelectedBlock(e.target.value)}
+          >
+            <option value="">All</option>
+            {uniqueBlocks.map((block, i) => (
+              <option key={i} value={block}>{block}</option>
             ))}
           </select>
         </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
-import logo from '../assets/RMK.png';
+import logo from '../assets/logo.png';
 import LocationDropdown from './LocationDropdown';
 
 const Header = styled.header`
@@ -19,9 +19,17 @@ const Header = styled.header`
 `;
 
 const Logo = styled.img`
-  width: 50px;
+  width: 100px;
   height: 70px;
+
+  filter: brightness(0.8) contrast(1.75);
+  image-rendering: crisp-edges;
+  drop-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 `;
+
+
+
+
 
 const LogoLink = styled.a`
   text-decoration: none;

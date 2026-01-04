@@ -23,6 +23,7 @@ import Blocks from "./Components/Blocks.jsx";
 import Shops from "./Components/Shops.jsx";
 import Transfer from "./Components/Transfer.jsx";
 import ProductStock from "./Components/ProductStock.jsx";
+import PrintProductStock from "./Components/PrintProductStock.jsx";
 import PrintNetReport from "./Components/PrintNetReport.jsx";
 import PrintAvailableStock from "./Components/PrintAvailableStock.jsx";
 function ScrollToTop() {
@@ -61,6 +62,7 @@ function App() {
             <Route path="itemtable" element={<ItemsTable/>}/>
             <Route path="itemtable/print" element={<PrintPage/>}/>
             <Route path="productStock" element={<ProductStock/>}/>
+            <Route path="productStock/print" element={<PrintProductStock />} />
             <Route path="reports/dispatch-report" element={<PrintDispatchReport/>} />
             <Route path="reports/purchase-report" element={<PrintPurchaseReport/>} />
             <Route path="reports/transfer-report" element={<PrintTransferReport/>} />
