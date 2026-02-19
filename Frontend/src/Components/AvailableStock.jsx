@@ -85,7 +85,7 @@ const Controls = styled.div`
   }
 
   @media print {
-    display: none; /* hide filters in print */
+    display: none;
   }
 `;
 
@@ -155,7 +155,6 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
   const [locations, setLocations] = useState([]);
 
   useEffect(() => {
-    // Load session user locations to resolve institution name
     const stored = sessionStorage.getItem('userlocations');
     if (stored) {
       try {
@@ -186,7 +185,6 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
       .then(res => {
         const apiData = res.data?.data || [];
 
-        // Remove items with quantity ≤ 0
         const nonZero = apiData.filter(item => Number(item.quantity) > 0);
 
         const data = nonZero.map(stock => ({
@@ -195,13 +193,28 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
           daysLeftToExpire: calculateDaysLeft(stock.expiry_date),
         }));
 
-        // Get unique categories
-        const uniqCats = Array.from(
-          new Set(data.map(d => (d.category || '').trim()).filter(Boolean))
-        ).sort((a, b) => a.localeCompare(b));
+        // 🔹 SORT ENTIRE DATASET (Category → Item Name A-Z)
+        const sortedData = [...data].sort((a, b) => {
+          const categoryCompare = (a.category || '').localeCompare(
+            b.category || '',
+            undefined,
+            { sensitivity: 'base' }
+          );
+          if (categoryCompare !== 0) return categoryCompare;
 
-        setCurr(data);
-        setFilteredCurr(data);
+          return (a.itemName || '').localeCompare(
+            b.itemName || '',
+            undefined,
+            { sensitivity: 'base' }
+          );
+        });
+
+        const uniqCats = Array.from(
+          new Set(sortedData.map(d => (d.category || '').trim()).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+        setCurr(sortedData);
+        setFilteredCurr(sortedData);
         setCategories(uniqCats);
       })
       .catch(err => {
@@ -229,7 +242,8 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
 
   useEffect(() => {
     const lower = (searchTerm || '').toLowerCase().trim();
-    const filtered = curr.filter(item => {
+
+    let filtered = curr.filter(item => {
       if (selectedCategory && item.category !== selectedCategory) return false;
       if (!lower) return true;
       return (
@@ -237,6 +251,16 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
         (item.subCategory && item.subCategory.toLowerCase().includes(lower))
       );
     });
+
+    // 🔹 SORT FILTERED RESULT ALSO (Item Name A-Z)
+    filtered = filtered.sort((a, b) =>
+      (a.itemName || '').localeCompare(
+        b.itemName || '',
+        undefined,
+        { sensitivity: 'base' }
+      )
+    );
+
     setFilteredCurr(filtered);
   }, [curr, searchTerm, selectedCategory]);
 
@@ -250,7 +274,6 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
     <Container ref={ref}>
       <h1>AVAILABLE STOCK</h1>
 
-      {/* Meta Info visible for print */}
       <MetaInfo>
         <div>
           <span className="meta-label">Institution</span>
@@ -262,7 +285,6 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
             {moment().format('DD-MM-YYYY')}
           </span>
         </div>
-        
         <div>
           <span className="meta-label">Category</span>
           <span className="meta-value">{selectedCategory || 'All'}</span>
@@ -291,10 +313,13 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
         />
 
         <button className="search-button">Search</button>
-        <button className="clear-button" onClick={() => {
-          setSelectedCategory('');
-          setSearchTerm('');
-        }}>
+        <button
+          className="clear-button"
+          onClick={() => {
+            setSelectedCategory('');
+            setSearchTerm('');
+          }}
+        >
           Clear
         </button>
       </Controls>

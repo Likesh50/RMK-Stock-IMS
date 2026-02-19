@@ -5,6 +5,11 @@ import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
 import { Autocomplete, TextField } from '@mui/material';
 
+import Checkbox from '@mui/material/Checkbox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+
+
 
 const Container = styled.div`
   @media print {
@@ -174,10 +179,10 @@ const institutionMap = {
 };
 
 const MetaInfo = styled.div`
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: center;
-  gap: 50px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  row-gap: 15px;
+  column-gap: 40px;
   margin: 20px 0 30px 0;
   color: #164863;
   text-align: left;
@@ -185,37 +190,24 @@ const MetaInfo = styled.div`
   div {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    white-space : nowrap;
   }
 
   .meta-label {
     font-weight: 700;
-    font-size: 17px;
-    color: #164863;
+    font-size: 16px;
   }
 
   .meta-value {
     font-weight: 500;
-    font-size: 17px;
+    font-size: 16px;
   }
 
   @media print {
-    justify-content: space-between;
-    gap: 10px;
-    margin: 10px 0 15px 0;
-
-    .meta-label,
-    .meta-value {
-      font-size: 14px;
-    }
-
-    div {
-      min-width: auto;
-      align-items: flex-start;
-    }
+    grid-template-columns: repeat(4, 1fr);
+    font-size: 14px;
   }
 `;
+
 
 /**
  * visibleColumns prop shape (optional):
@@ -247,53 +239,89 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
   const [selectedItem, setSelectedItem] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  // location id from localStorage
-  const [selectedId] = useState(() => {
-    return localStorage.getItem('locationid') || '';
-  });
+  // 🔹 Location selection (multi-select support)
 
-  // Load userlocations from sessionStorage
-  const [locations, setLocations] = useState([]);
-  useEffect(() => {
-    const stored = sessionStorage.getItem('userlocations');
-    if (stored) {
-      try {
-        setLocations(JSON.parse(stored));
-      } catch (err) {
-        console.error('Invalid JSON in sessionStorage for userlocations:', err);
-      }
+const [locations, setLocations] = useState([]);
+const [selectedLocations, setSelectedLocations] = useState([]);
+
+// Load userlocations from sessionStorage
+useEffect(() => {
+  const stored = sessionStorage.getItem('userlocations');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      setLocations(parsed || []);
+    } catch (err) {
+      console.error('Invalid JSON in sessionStorage for userlocations:', err);
+      setLocations([]);
     }
-  }, []);
+  }
+}, []);
 
-  const selectedLocationNameFromSession = locations.find(
-    loc => String(loc.location_id) === String(selectedId)
-  )?.location_name || '';
+// Compute display name for header/meta
+const selectedLocationNameFromSession =
+  selectedLocations.length === 0 ||
+  selectedLocations.length === locations.length
+    ? "All Locations"
+    : selectedLocations
+        .map(id =>
+          locations.find(loc => String(loc.location_id) === String(id))?.location_name
+        )
+        .filter(Boolean)
+        .join(", ");
+
+
 
   // Fetch data
   useEffect(() => {
-    if (!selectedId) {
-      console.warn("No locationid found in localStorage");
-      setLoading(false);
-      return;
-    }
+  if (!locations.length) return;
 
-    setLoading(true);
-    Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/dispatchReport`, {
-      params: {
-        startDate: fromDate,
-        endDate: toDate,
-        location_id: selectedId
+  setLoading(true);
+
+  const fetchData = async () => {
+    try {
+      let combined = [];
+
+      const locationsToFetch =
+        selectedLocations.length > 0
+          ? locations.filter(loc =>
+              selectedLocations.includes(String(loc.location_id))
+            )
+          : locations;
+
+      for (let loc of locationsToFetch) {
+        const res = await Axios.get(
+          `${import.meta.env.VITE_RMK_MESS_URL}/report/dispatchReport`,
+          {
+            params: {
+              startDate: fromDate,
+              endDate: toDate,
+              location_id: loc.location_id
+            }
+          }
+        );
+
+        const rows = (res.data.data || []).map(r => ({
+          ...r,
+          location_name: loc.location_name
+        }));
+
+        combined = [...combined, ...rows];
       }
-    })
-    .then(res => {
-      setData(res.data.data || []);
+
+      setData(combined);
+
+    } catch (err) {
+      console.error("Error fetching dispatch report:", err);
+    } finally {
       setLoading(false);
-    })
-    .catch(err => {
-      console.error("Error fetching report data:", err);
-      setLoading(false);
-    });
-  }, [fromDate, toDate, selectedId]);
+    }
+  };
+
+  fetchData();
+}, [fromDate, toDate, selectedLocations, locations]);
+
+
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -380,6 +408,15 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
 
   // Compute grand total (sum of 'total' field)
   const grandTotalAmount = filteredData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+
+  //GROUP DATA BY LOCATION
+  const groupedData = filteredData.reduce((acc, row) => {
+  const key = row.location_name || "Unknown";
+  if (!acc[key]) acc[key] = [];
+  acc[key].push(row);
+  return acc;
+}, {});
+
 
   if (loading) {
     return (
@@ -477,12 +514,74 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
             ))}
           </select>
         </div>
-      </FilterContainer>
+        
+        <div>
+  <label>Location: </label>
+  <select
+    value=""
+    onChange={(e) => {
+      const value = e.target.value;
+
+      if (value === "ALL") {
+        const allIds = locations.map(loc => String(loc.location_id));
+        setSelectedLocations(allIds);
+      } else {
+        if (selectedLocations.includes(value)) {
+          setSelectedLocations(selectedLocations.filter(id => id !== value));
+        } else {
+          setSelectedLocations([...selectedLocations, value]);
+        }
+      }
+    }}
+  >
+    <option value="">Select Locations</option>
+    <option value="ALL">
+      {selectedLocations.length === locations.length ? "✓ All" : "All"}
+    </option>
+
+    {locations.map(loc => (
+      <option key={loc.location_id} value={loc.location_id}>
+        {selectedLocations.includes(String(loc.location_id))
+          ? `✓ ${loc.location_name}`
+          : loc.location_name}
+      </option>
+    ))}
+  </select>
+</div>
+
+
+</FilterContainer>
+
+{/* LOCATION WISE TABLES */}
+{(
+  selectedLocations.length === 0
+    ? locations.map(loc => loc.location_name)
+    : selectedLocations
+        .map(id =>
+          locations.find(l => String(l.location_id) === String(id))?.location_name
+        )
+        .filter(Boolean)
+).map((locationName, groupIndex) => {
+
+  const rows = groupedData[locationName] || [];
+
+  const locationTotal = rows.reduce(
+    (sum, row) => sum + (Number(row.total) || 0),
+    0
+  );
+
+  return (
+    <div key={groupIndex} style={{ marginBottom: 40 }}>
+
+      {/* Location Heading */}
+      <h3 style={{ marginTop: 25 }}>
+        Location: {locationName}
+      </h3>
 
       <ItemTable>
         <thead>
           <tr>
-            {finalColumns.sno && <th style={{ width: "70px" }}>SNO</th>}
+            {finalColumns.sno && <th>SNO</th>}
             {finalColumns.dispatchDate && <th>Dispatch Date</th>}
             {finalColumns.item && <th>Item Name</th>}
             {finalColumns.category && <th>Category</th>}
@@ -495,50 +594,60 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
             {finalColumns.total && <th>Total</th>}
           </tr>
         </thead>
+
         <tbody>
-          {filteredData.length > 0 ? (
-            filteredData.map((row, index) => (
-              <tr key={index}>
-                {finalColumns.sno && <td>{index + 1}</td>}
-                {finalColumns.dispatchDate && <td>{formatDate(row.dispatch_date)}</td>}
-                {finalColumns.item && <td style={{ textAlign: 'left' }}>{row.item_name || '—'}</td>}
-                {finalColumns.category && <td>{row.category || '—'}</td>}
-                {finalColumns.quantity && <td>{Number(row.quantity) || 0}</td>}
-                {finalColumns.block_name && <td>{row.block_name || '—'}</td>}
-                {finalColumns.sticker_no && <td>{row.sticker_no || '—'}</td>}
-                {finalColumns.receiver && <td>{row.receiver || '—'}</td>}
-                {finalColumns.incharge && <td>{row.incharge || '—'}</td>}
-                {finalColumns.price && <td>{formatCurrency(row.price)}</td>}
-                {finalColumns.total && <td>{formatCurrency(row.total)}</td>}
+          {rows.length > 0 ? (
+            <>
+              {rows.map((row, index) => (
+                <tr key={index}>
+                  {finalColumns.sno && <td>{index + 1}</td>}
+                  {finalColumns.dispatchDate && <td>{formatDate(row.dispatch_date)}</td>}
+                  {finalColumns.item && <td>{row.item_name}</td>}
+                  {finalColumns.category && <td>{row.category}</td>}
+                  {finalColumns.quantity && <td>{row.quantity}</td>}
+                  {finalColumns.block_name && <td>{row.block_name}</td>}
+                  {finalColumns.sticker_no && <td>{row.sticker_no}</td>}
+                  {finalColumns.receiver && <td>{row.receiver}</td>}
+                  {finalColumns.incharge && <td>{row.incharge}</td>}
+                  {finalColumns.price && <td>{formatCurrency(row.price)}</td>}
+                  {finalColumns.total && <td>{formatCurrency(row.total)}</td>}
+                </tr>
+              ))}
+
+              {/* Location Total */}
+              <tr>
+                <td colSpan="9" style={{ textAlign: "right", fontWeight: "bold" }}>
+                  Total for {locationName}
+                </td>
+                <td colSpan="2" style={{ fontWeight: "bold" }}>
+                  {formatCurrency(locationTotal)}
+                </td>
               </tr>
-            ))
+            </>
           ) : (
             <tr>
-              <td colSpan={Math.max(1, visibleCount)} style={{ textAlign: 'center' }}>No data available</td>
+              <td colSpan="11" style={{ textAlign: "center", fontWeight: "bold" }}>
+                NIL
+              </td>
             </tr>
           )}
-
-          {/* End of Report + Grand Total row */}
-          <tr>
-            <td colSpan={Math.max(1, visibleCount - 2)} style={{ textAlign: "left", fontWeight: "bold", paddingLeft: 12 }}>
-              END OF REPORT
-            </td>
-
-            <td colSpan="1" style={{ textAlign: "right", fontWeight: "bold", paddingRight: 12 }}>
-              GRAND TOTAL
-            </td>
-
-            <td style={{ fontWeight: "bold" }}>
-              {formatCurrency(grandTotalAmount)}
-            </td>
-          </tr>
         </tbody>
       </ItemTable>
 
-      <Footer>
-        Copyright © 2024. All rights reserved to DEPARTMENT of INFORMATION TECHNOLOGY - RMKEC
-      </Footer>
-    </Container>
+    </div>
+  );
+})}
+
+{/* GRAND TOTAL */}
+<h3 style={{ textAlign: "right", marginTop: 20 }}>
+  GRAND TOTAL: {formatCurrency(grandTotalAmount)}
+</h3>
+
+<Footer>
+  Copyright © 2024. All rights reserved to DEPARTMENT of INFORMATION TECHNOLOGY - RMKEC
+</Footer>
+</Container>
+
   );
 });
 

@@ -354,7 +354,6 @@ export const ProductStock = () => {
         <Title>Stock Across Locations</Title>
 
         <SubHeader>
-          <div>Location: <span style={{fontWeight:700, marginLeft:8}}>{selectedLocationName || '—'}</span></div>
           <div>Report Date: <span style={{fontWeight:700, marginLeft:8}}>{dayjs().format('DD/MM/YYYY')}</span></div>
         </SubHeader>
 
