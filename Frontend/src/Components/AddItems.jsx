@@ -10,11 +10,11 @@ const Container = styled.div` padding: 0px; text-align: center; `;
 const Heading = styled.h1` color: #164863; margin-bottom: 20px; `;
 const SubHeading = styled.h3` color: #164863; margin-top: 20px; `;
 const Table = styled.table` width: 80%; border-collapse: collapse; text-align: center; margin-left: 140px; `;
-const Th = styled.th` background-color: #164863; color: white; padding: 10px; border: 1px solid #ddd; width: 200px; `;
+const Th = styled.th` background-color: #3582ab;; color: white; padding: 10px; border: 1px solid #ddd; width: 200px; `;
 const Td = styled.td` padding: 10px; border: 1px solid #ddd; width: 200px; `;
 const Input = styled.input` width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; &:focus { outline: 2px solid #164863; } `;
 const Select = styled.select` width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; `;
-const SubmitContainer = styled.div` margin-top: 20px; text-align: center; .add-button { padding: 10px 20px; border: none; border-radius: 4px; background-color: #164863; color: white; font-size: 16px; cursor: pointer; margin-right: 10px; &:hover { background-color: #0a3d62; } &:active { transform: scale(0.98); } } `;
+const SubmitContainer = styled.div` margin-top: 20px; text-align: center; .add-button { padding: 10px 20px; border: none; border-radius: 4px; background-color: #3582ab;; color: white; font-size: 16px; cursor: pointer; margin-right: 10px; &:hover { background-color: #0a3d62; } &:active { transform: scale(0.98); } } `;
 const SubmitButton = styled.button` padding: 10px 20px; border: none; border-radius: 4px; background-color: #4caf50; color: white; font-size: 16px; cursor: pointer; &:hover { background-color: #45a049; } &:active { transform: scale(0.98); } `;
 const ErrorText = styled.div` color: red; margin-top: 20px; font-size: 32px; `;
 

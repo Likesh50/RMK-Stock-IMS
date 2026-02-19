@@ -78,7 +78,7 @@ const TableHeader = styled.table`
   margin-top: 30px;
 
   th {
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
     padding: 10px;
     border: 1px solid #ddd;

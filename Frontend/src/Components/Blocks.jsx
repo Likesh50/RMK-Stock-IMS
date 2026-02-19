@@ -31,7 +31,7 @@ const AddButton = styled.button`
   padding: 10px 20px;
   border: none;
   border-radius: 6px;
-  background-color: #164863;
+  background-color: #3582ab;;
   color: white;
   cursor: pointer;
 
@@ -54,7 +54,7 @@ const ItemTable = styled.table`
   }
 
   th {
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
   }
 

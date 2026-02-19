@@ -58,7 +58,7 @@ const AddButton = styled.button`
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
-  background-color: #164863;
+  background-color: #3582ab;;
   color: white;
   cursor: pointer;
   font-size: 14px;
@@ -84,7 +84,7 @@ const ItemTable = styled.table`
   }
 
   th {
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
     font-size: 16px;
     font-weight: bold;
@@ -147,7 +147,7 @@ const SubmitContainer = styled.div`
     padding: 10px 20px;
     border: none;
     border-radius: 4px;
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
     font-size: 16px;
     cursor: pointer;

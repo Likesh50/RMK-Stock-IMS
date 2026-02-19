@@ -8,7 +8,7 @@ const GlobalPrintStyles = createGlobalStyle`
       print-color-adjust: exact !important;
     }
     table thead th {
-      background-color: #164863 !important;
+      background-color: #3582ab; !important;
       color: #fff !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -16,7 +16,7 @@ const GlobalPrintStyles = createGlobalStyle`
       border-bottom: 6px solid #164863 !important;
     }
     footer, .print-footer {
-      background-color: #164863 !important;
+      background-color: #3582ab; !important;
       color: #fff !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;

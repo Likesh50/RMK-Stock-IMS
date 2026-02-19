@@ -55,7 +55,7 @@ const TableHeader = styled.table`
   font-family: Arial, sans-serif;
 
   th {
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
     font-size: 16px;
     font-weight: bold;

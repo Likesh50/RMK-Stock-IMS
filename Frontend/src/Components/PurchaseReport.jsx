@@ -57,7 +57,7 @@ const ItemTable = styled.table`
     position: sticky;
     top: 0;
     z-index: 2;
-    background-color: #164863;
+    background-color: #3582ab;;
     color: #fff;
     padding: 10px;             /* slightly reduced */
     font-size: 14px;
@@ -184,7 +184,7 @@ const PrintHeader = styled.div`
 const Footer = styled.footer`
   text-align: center;
   padding: 10px;
-  background-color: #164863;
+  background-color: #3582ab;;
   color: white;
   display: none;
   margin-top: 12px;

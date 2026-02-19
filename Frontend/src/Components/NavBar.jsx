@@ -10,7 +10,7 @@ const Header = styled.header`
   left: 0;
   width: 100%;
   padding: 10px 1% 10px 1.3%;
-  background-color: #164863;
+  background-color: #3582ab;
   display: flex;
   justify-content: space-between;
   align-items: center;

@@ -56,7 +56,7 @@ import {
     padding: 8px 16px;
     border: none;
     border-radius: 4px;
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
     cursor: pointer;
     font-size: 14px;
@@ -81,7 +81,7 @@ import {
     }
 
     th {
-      background-color: #164863;
+      background-color: #3582ab;;
       color: white;
       font-size: 16px;
       font-weight: bold;
@@ -138,7 +138,7 @@ import {
       padding: 10px 20px;
       border: none;
       border-radius: 4px;
-      background-color: #164863;
+      background-color: #3582ab;;
       color: white;
       font-size: 16px;
       cursor: pointer;

@@ -103,7 +103,7 @@ const StyledAutocomplete = styled(Autocomplete)`
 
 const RefreshButton = styled(MuiButton)`
   && {
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
     height: 42px;
     padding: 8px 18px;

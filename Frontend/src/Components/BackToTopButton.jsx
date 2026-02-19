@@ -10,7 +10,7 @@ const Button = styled.div.withConfig({
   right: 50px;
   width: 40px;
   height: 40px;
-  background-color: #164863;
+  background-color: #3582ab;;
   color: white;
   text-align: center;
   border-radius: 100%;

@@ -30,7 +30,7 @@ const MainFrame = styled.div`
 const Footer = styled.footer`
     text-align: center;
     padding: 10px;
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
     margin-top: 130px;
 `;

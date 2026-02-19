@@ -44,7 +44,7 @@ const ItemTable = styled.table`
     text-align: left;
   }
   th {
-    background-color: #164863;
+    background-color: #3582ab;;
     color: white;
   }
   tbody tr:nth-child(even) {
