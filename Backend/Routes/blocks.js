@@ -4,24 +4,45 @@ const router = express.Router();
 
 /**
  * ✅ Get all blocks for a location
- * Requires: location_id from query (frontend must send ?location_id=1)
+ * Requires: location_id OR all_blocks=true
  */
 router.get("/", async (req, res) => {
-  const { location_id } = req.query;
-
-  if (!location_id) {
-    return res.status(400).json({ error: "location_id is required" });
-  }
+  const { location_id, all_blocks } = req.query;
 
   try {
-    const [rows] = await db.query(
-      "SELECT * FROM blocks WHERE location_id = ? ORDER BY block_id ASC",
+    let rows;
+
+    // ✅ CASE 1: Fetch ALL blocks (ONLY when explicitly requested)
+    if (all_blocks === 'true') {
+      [rows] = await db.query(`
+        SELECT b.*, l.location_name 
+        FROM blocks b
+        LEFT JOIN locations l ON b.location_id = l.location_id
+        ORDER BY l.location_name ASC, b.block_name ASC
+      `);
+
+      return res.json(rows);
+    }
+
+    // ✅ CASE 2: Normal behavior (NO CHANGE to existing logic)
+    if (!location_id) {
+      return res.status(400).json({ error: "location_id is required" });
+    }
+
+    [rows] = await db.query(
+      `SELECT b.*, l.location_name 
+       FROM blocks b
+       LEFT JOIN locations l ON b.location_id = l.location_id
+       WHERE b.location_id = ?
+       ORDER BY b.block_name ASC`,
       [location_id]
     );
-    res.json(rows);
+
+    return res.json(rows);
+
   } catch (err) {
     console.error("Error fetching blocks:", err);
-    res.status(500).json({ error: "Failed to fetch blocks" });
+    return res.status(500).json({ error: "Failed to fetch blocks" });
   }
 });
 

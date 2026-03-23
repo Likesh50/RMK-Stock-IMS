@@ -233,14 +233,53 @@ function Dispatch() {
   const [blocks, setBlocks] = useState([]);
 
 useEffect(() => {
-  if (selectedId) {
-    axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/blocks`, {
-      params: { location_id: selectedId }
-    })
-    .then(res => setBlocks(res.data))
-    .catch(err => console.error("Error fetching blocks:", err));
+  if (selectedId && locations.length > 0) {
+    const selectedLocation = locations.find(
+      loc => loc.location_id == selectedId
+    );
+
+    const fetchBlocks = async () => {
+      try {
+        let res;
+
+        // ✅ RMKEC → fetch ALL blocks (FIXED)
+        if (selectedLocation?.location_name?.toLowerCase() === 'rmkec') {
+          res = await axios.get(
+            `${import.meta.env.VITE_RMK_MESS_URL}/blocks`,
+            { params: { all_blocks: true } }
+          );
+        } else {
+          res = await axios.get(
+            `${import.meta.env.VITE_RMK_MESS_URL}/blocks`,
+            { params: { location_id: selectedId } }
+          );
+        }
+
+        let data = res.data || [];
+
+        // ✅ Add grouping field
+        const grouped = data.map(b => ({
+          ...b,
+          group: b.location_name || "Others"
+        }));
+
+        // ✅ Sort: group + block name
+        grouped.sort((a, b) => {
+          if (a.group === b.group) {
+            return a.block_name.localeCompare(b.block_name);
+          }
+          return a.group.localeCompare(b.group);
+        });
+
+        setBlocks(grouped);
+      } catch (err) {
+        console.error("Error fetching blocks:", err);
+      }
+    };
+
+    fetchBlocks();
   }
-}, [selectedId]);
+}, [selectedId, locations]);
   useEffect(() => {
     const stored = sessionStorage.getItem('userlocations');
     if (stored) {
@@ -482,8 +521,11 @@ const fetchAvailableStock = async (rowId, itemId) => {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, index) => (
-            <tr key={row.id}>
+          {rows.map((row, index) => {
+            const selectedBlock = blocks.find(b => b.block_id === row.block_id);
+
+            return (
+              <tr key={row.id}>
               <td>{index + 1}</td>
               <td>
                 <Autocomplete
@@ -526,16 +568,34 @@ const fetchAvailableStock = async (rowId, itemId) => {
               </td>
               <td>
                 <Autocomplete
-                  options={blocks.map(b => ({ label: b.block_name, id: b.block_id }))}
-                  value={
-                    blocks.find(b => b.block_id === row.block_id)
-                      ? { label: blocks.find(b => b.block_id === row.block_id).block_name, id: row.block_id }
-                      : null
+            options={blocks.map(b => ({
+              label: b.block_name,
+              id: b.block_id,
+              group: b.group
+            }))}
+
+            groupBy={(option) => option.group || "Others"}
+
+            value={
+              selectedBlock
+                ? {
+                    label: selectedBlock.block_name,
+                    id: selectedBlock.block_id,
+                    group: selectedBlock.group
                   }
-                  onChange={(e, newValue) => handleInputChange(row.id, 'block_id', newValue ? newValue.id : '')}
-                  renderInput={(params) => <TextField {...params} label="Block" variant="outlined" size="small" />}
-                  sx={{ width: 180 }}
-                />
+                : null
+            }
+
+            onChange={(e, newValue) =>
+              handleInputChange(row.id, 'block_id', newValue ? newValue.id : '')
+            }
+
+            renderInput={(params) => (
+              <TextField {...params} label="Block" variant="outlined" size="small" />
+            )}
+
+            sx={{ width: 180 }}
+          />
               </td>
               <td>
                 <input
@@ -548,7 +608,8 @@ const fetchAvailableStock = async (rowId, itemId) => {
                 <DeleteButton onClick={() => handleDeleteRow(row.id)}>Delete</DeleteButton>
               </td>
             </tr>
-          ))}
+            );
+})}
         </tbody>
       </ItemTable>
 

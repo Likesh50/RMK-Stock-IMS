@@ -19,7 +19,7 @@ const Header = styled.header`
 `;
 
 const Logo = styled.img`
-  width: 100px;
+  width: 140px;
   height: 70px;
 
   filter: brightness(0.8) contrast(1.75);
@@ -44,7 +44,7 @@ const LogoText = styled.div`
 
 const Left = styled.nav`
   display: flex;
-  gap: 10px;
+  gap: 20px;
 `;
 
 const Alig = styled.div`
