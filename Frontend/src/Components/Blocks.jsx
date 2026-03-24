@@ -116,13 +116,16 @@ function Blocks() {
     try {
       setLoading(true);
       const res = await axios.get(
-        `${import.meta.env.VITE_RMK_MESS_URL}/blocks?location_id=${selectedId}`
-      );
-      setBlocks(
-        (data || []).sort((a, b) =>
-          normalize(a.block_name).localeCompare(normalize(b.block_name))
-        )
-      );
+  `${import.meta.env.VITE_RMK_MESS_URL}/blocks?location_id=${selectedId}`
+);
+
+const data = res.data || [];
+
+setBlocks(
+  [...data].sort((a, b) =>
+    normalize(a.block_name).localeCompare(normalize(b.block_name))
+  )
+);
     } catch (err) {
       toast.error("Failed to fetch blocks");
       console.error(err);

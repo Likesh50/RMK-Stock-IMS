@@ -195,23 +195,12 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
           daysLeftToExpire: calculateDaysLeft(stock.expiry_date),
         }));
 
-        // 🔹 SORT ENTIRE DATASET (Category → Item Name A-Z)
-
-
+        // ✅ CLEAN SORT (FIXED)
         const sortedData = [...data].sort((a, b) => {
           const categoryCompare = normalize(a.category).localeCompare(normalize(b.category));
-
           if (categoryCompare !== 0) return categoryCompare;
 
           return normalize(a.itemName).localeCompare(normalize(b.itemName));
-        });
-          if (categoryCompare !== 0) return categoryCompare;
-
-          return (a.itemName || '').localeCompare(
-            b.itemName || '',
-            undefined,
-            { sensitivity: 'base' }
-          );
         });
 
         const uniqCats = Array.from(
@@ -257,22 +246,12 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
       );
     });
 
-    // 🔹 SORT FILTERED RESULT ALSO (Item Name A-Z)
+    // ✅ CLEAN SORT (FIXED)
     filtered = [...filtered].sort((a, b) => {
       const categoryCompare = normalize(a.category).localeCompare(normalize(b.category));
-
       if (categoryCompare !== 0) return categoryCompare;
 
       return normalize(a.itemName).localeCompare(normalize(b.itemName));
-    });
-
-      if (categoryCompare !== 0) return categoryCompare;
-
-      return (a.itemName || '').localeCompare(
-        b.itemName || '',
-        undefined,
-        { sensitivity: 'base' }
-      );
     });
 
     setFilteredCurr(filtered);
