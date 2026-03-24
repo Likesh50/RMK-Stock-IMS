@@ -100,6 +100,8 @@ function Blocks() {
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
 
+  const normalize = (val) => (val || '').toString().trim().toLowerCase()
+
   // ✅ location_id from localStorage
   const [selectedId] = useState(() => {
     return localStorage.getItem("locationid") || "";
@@ -117,8 +119,8 @@ function Blocks() {
         `${import.meta.env.VITE_RMK_MESS_URL}/blocks?location_id=${selectedId}`
       );
       setBlocks(
-        (res.data || []).sort((a, b) =>
-          a.block_name.localeCompare(b.block_name, undefined, { sensitivity: 'base' })
+        (data || []).sort((a, b) =>
+          normalize(a.block_name).localeCompare(normalize(b.block_name))
         )
       );
     } catch (err) {

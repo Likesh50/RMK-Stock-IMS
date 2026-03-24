@@ -154,6 +154,8 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState([]);
 
+  const normalize = (val) => (val || '').toString().trim().toLowerCase();
+
   useEffect(() => {
     const stored = sessionStorage.getItem('userlocations');
     if (stored) {
@@ -194,12 +196,15 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
         }));
 
         // 🔹 SORT ENTIRE DATASET (Category → Item Name A-Z)
+
+
         const sortedData = [...data].sort((a, b) => {
-          const categoryCompare = (a.category || '').localeCompare(
-            b.category || '',
-            undefined,
-            { sensitivity: 'base' }
-          );
+          const categoryCompare = normalize(a.category).localeCompare(normalize(b.category));
+
+          if (categoryCompare !== 0) return categoryCompare;
+
+          return normalize(a.itemName).localeCompare(normalize(b.itemName));
+        });
           if (categoryCompare !== 0) return categoryCompare;
 
           return (a.itemName || '').localeCompare(
@@ -254,11 +259,12 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
 
     // 🔹 SORT FILTERED RESULT ALSO (Item Name A-Z)
     filtered = [...filtered].sort((a, b) => {
-      const categoryCompare = (a.category || '').localeCompare(
-        b.category || '',
-        undefined,
-        { sensitivity: 'base' }
-      );
+      const categoryCompare = normalize(a.category).localeCompare(normalize(b.category));
+
+      if (categoryCompare !== 0) return categoryCompare;
+
+      return normalize(a.itemName).localeCompare(normalize(b.itemName));
+    });
 
       if (categoryCompare !== 0) return categoryCompare;
 
