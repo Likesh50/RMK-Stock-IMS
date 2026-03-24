@@ -18,15 +18,27 @@ const Title = styled.h1`
   margin-bottom: 20px;
 `;
 
+const TopBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0 20px;
+  padding: 10px 5px;
+`;
+
+const RightControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
 const TableContainer = styled.div`
   margin: 20px;
   padding: 20px;
-  
-  /* Print-specific styles */
+
   @media print {
     margin: 40px;
     padding: 20px;
-    /* You can add more print-specific styles here */
   }
 `;
 
@@ -57,36 +69,94 @@ const Button = styled.button`
   border-radius: 4px;
   font-size: 16px;
   cursor: pointer;
-  transition: background-color 0.3s;
 
   &:hover {
     background-color: #45a049;
   }
 `;
 
+const Select = styled.select`
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  font-size: 14px;
+  min-width: 160px;
+  background-color: white;
+
+  &:focus {
+    outline: none;
+    border-color: #4caf50;
+    box-shadow: 0 0 3px rgba(76, 175, 80, 0.4);
+  }
+`;
+
 const ItemsTable = () => {
   const [items, setItems] = useState([]);
-  const tableRef = useRef(); // Create a ref for the table
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+
+  const tableRef = useRef();
 
   useEffect(() => {
-    // Fetch the items from the backend
     Axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/items`)
       .then((res) => {
-        setItems(res.data);
+        const data = res.data || [];
+        setItems(data);
+
+        // Extract categories
+        const uniqueCategories = [
+          'All',
+          ...Array.from(new Set(data.map(i => i.category).filter(Boolean))).sort()
+        ];
+        setCategories(uniqueCategories);
       })
       .catch((err) => console.error('Error fetching items:', err));
   }, []);
 
-  // useReactToPrint to handle printing
+  // 🔥 FILTER + SORT LOGIC
+  useEffect(() => {
+    let data = [...items];
+
+    if (selectedCategory !== 'All') {
+      data = data.filter(i => i.category === selectedCategory);
+    } else {
+      // Sort by category when "All"
+      data.sort((a, b) =>
+        (a.category || '').localeCompare(b.category || '')
+      );
+    }
+
+    setFilteredItems(data);
+  }, [items, selectedCategory]);
+
   const handlePrint = useReactToPrint({
-    content: () => tableRef.current, // Reference the table component
+    content: () => tableRef.current,
   });
 
   return (
     <Container>
       <Title>Items Table</Title>
-      <Button sty onClick={handlePrint}>Print Table</Button>
-      {/* Table with print-specific margins */}
+
+      {/* 🔥 TOP BAR */}
+      <TopBar>
+        <Button onClick={handlePrint}>Print Table</Button>
+        <RightControls>
+          <label style={{ fontWeight: "600" }}>Category:</label>
+
+          <Select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+          >
+                {categories.map((cat, index) => (
+                  <option key={index} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </Select>
+            </RightControls>
+      </TopBar>
+
       <TableContainer ref={tableRef}>
         <Table>
           <thead>
@@ -100,9 +170,9 @@ const ItemsTable = () => {
             </tr>
           </thead>
           <tbody>
-            {items.map((item,i) => (
+            {filteredItems.map((item, i) => (
               <tr key={item.item_id}>
-                <Td>{i+1}</Td>
+                <Td>{i + 1}</Td>
                 <Td>{item.item_id}</Td>
                 <Td>{item.item_name}</Td>
                 <Td>{item.unit}</Td>
@@ -113,9 +183,6 @@ const ItemsTable = () => {
           </tbody>
         </Table>
       </TableContainer>
-      
-      {/* Print button */}
-     
     </Container>
   );
 };

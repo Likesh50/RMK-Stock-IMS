@@ -253,13 +253,21 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
     });
 
     // 🔹 SORT FILTERED RESULT ALSO (Item Name A-Z)
-    filtered = filtered.sort((a, b) =>
-      (a.itemName || '').localeCompare(
+    filtered = [...filtered].sort((a, b) => {
+      const categoryCompare = (a.category || '').localeCompare(
+        b.category || '',
+        undefined,
+        { sensitivity: 'base' }
+      );
+
+      if (categoryCompare !== 0) return categoryCompare;
+
+      return (a.itemName || '').localeCompare(
         b.itemName || '',
         undefined,
         { sensitivity: 'base' }
-      )
-    );
+      );
+    });
 
     setFilteredCurr(filtered);
   }, [curr, searchTerm, selectedCategory]);

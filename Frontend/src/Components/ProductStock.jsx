@@ -27,6 +27,10 @@ const PageWrap = styled.div`
   background: #f6f8f9;
   font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   padding-bottom: 40px;
+  @media print {
+  background: white;
+  padding: 0;
+}
 `;
 
 const TopBar = styled.div`
@@ -76,8 +80,11 @@ const ControlsCard = styled.div`
   align-items:center;
   justify-content:center;
   flex-wrap:wrap;
-`;
 
+  @media print {
+    display: none;
+  }
+`;
 const Controls = styled.div`
   display:flex;
   gap:12px;

@@ -116,7 +116,11 @@ function Blocks() {
       const res = await axios.get(
         `${import.meta.env.VITE_RMK_MESS_URL}/blocks?location_id=${selectedId}`
       );
-      setBlocks(res.data);
+      setBlocks(
+        (res.data || []).sort((a, b) =>
+          a.block_name.localeCompare(b.block_name, undefined, { sensitivity: 'base' })
+        )
+      );
     } catch (err) {
       toast.error("Failed to fetch blocks");
       console.error(err);
