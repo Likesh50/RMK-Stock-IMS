@@ -192,7 +192,7 @@ const Reports = () => {
               setToDate={setTransferToDate}
             />
             <ReportCard
-              title="Net Report"
+              title="NET REPORT"
               route="/dashboard/reports/net-report"
               fromDate={netFromDate}
               toDate={netToDate}

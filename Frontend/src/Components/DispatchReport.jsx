@@ -563,7 +563,18 @@ const selectedLocationNameFromSession =
         .filter(Boolean)
 ).map((locationName, groupIndex) => {
 
-  const rows = groupedData[locationName] || [];
+  const rows = (groupedData[locationName] || []).sort((a, b) => {
+  const dateA = new Date(a.dispatch_date);
+  const dateB = new Date(b.dispatch_date);
+
+  // Step 1: Sort by date (keep grouping intact)
+  if (dateA.getTime() !== dateB.getTime()) {
+    return dateA - dateB;
+  }
+
+  // Step 2: SAME DATE → sort category A–Z
+  return (a.category || '').localeCompare(b.category || '');
+});
 
   const locationTotal = rows.reduce(
     (sum, row) => sum + (Number(row.total) || 0),

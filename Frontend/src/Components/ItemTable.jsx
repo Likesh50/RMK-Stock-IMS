@@ -16,6 +16,8 @@ const Container = styled.div`
 const Title = styled.h1`
   text-align: center;
   margin-bottom: 20px;
+  color: #164863; /* ✅ same as Available Stock */
+  font-weight: 700;
 `;
 
 const TopBar = styled.div`
@@ -40,6 +42,11 @@ const TableContainer = styled.div`
     margin: 40px;
     padding: 20px;
   }
+  @media print {
+  .print-header {
+    display: block !important;
+  }
+}
 `;
 
 const Table = styled.table`
@@ -50,17 +57,19 @@ const Table = styled.table`
 
 const Th = styled.th`
   padding: 10px;
-  background-color: #4caf50;
+  background-color: #3582ab; /* ✅ match Available Stock */
   color: white;
   border: 1px solid #ddd;
   text-align: left;
+  font-size: 14px;
+  font-weight: bold;
 `;
-
 const Td = styled.td`
   padding: 10px;
   border: 1px solid #ddd;
+  font-size: 14px;
+  color: #222; /* slightly darker like AvailableStock */
 `;
-
 const Button = styled.button`
   padding: 10px 20px;
   background-color: #4caf50;
@@ -78,7 +87,7 @@ const Button = styled.button`
 const Select = styled.select`
   padding: 8px 12px;
   border-radius: 6px;
-  border: 1px solid #bbb;
+  border: 1px solid #164863;
   font-size: 14px;
   min-width: 160px;
   background-color: white;
@@ -95,6 +104,8 @@ const ItemsTable = () => {
   const [filteredItems, setFilteredItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [subcategories, setSubcategories] = useState([]);
+  const [selectedSubcategory, setSelectedSubcategory] = useState('All');
 
   const tableRef = useRef();
 
@@ -110,26 +121,49 @@ const ItemsTable = () => {
           ...Array.from(new Set(data.map(i => i.category).filter(Boolean))).sort()
         ];
         setCategories(uniqueCategories);
+
+        // Extract subcategories based on category
+        const uniqueSubcategories = [
+          'All',
+          ...Array.from(new Set(data.map(i => i.sub_category).filter(Boolean))).sort()
+        ];
+        setSubcategories(uniqueSubcategories);
       })
       .catch((err) => console.error('Error fetching items:', err));
   }, []);
 
+
   // 🔥 FILTER + SORT LOGIC
   useEffect(() => {
-    let data = [...items];
+  let data = [...items];
 
-    if (selectedCategory !== 'All') {
-      data = data.filter(i => i.category === selectedCategory);
-    } else {
-      // Sort by category when "All"
-      data.sort((a, b) =>
-        (a.category || '').localeCompare(b.category || '')
-      );
-    }
+  if (selectedCategory !== 'All') {
+    data = data.filter(i => i.category === selectedCategory);
 
-    setFilteredItems(data);
-  }, [items, selectedCategory]);
+    // 🔥 Subcategory depends on category
+    const subcats = [
+      'All',
+      ...Array.from(
+        new Set(
+          data.map(i => i.sub_category).filter(Boolean)
+        )
+      ).sort()
+    ];
+    setSubcategories(subcats);
+  }
 
+  if (selectedSubcategory !== 'All') {
+    data = data.filter(i => i.sub_category === selectedSubcategory);
+  }
+
+  // Sort always by category
+  data.sort((a, b) =>
+    (a.category || '').localeCompare(b.category || '')
+  );
+
+  setFilteredItems(data);
+}, [items, selectedCategory, selectedSubcategory]);
+  
   const handlePrint = useReactToPrint({
     content: () => tableRef.current,
   });
@@ -144,20 +178,75 @@ const ItemsTable = () => {
         <RightControls>
           <label style={{ fontWeight: "600" }}>Category:</label>
 
-          <Select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-          >
-                {categories.map((cat, index) => (
-                  <option key={index} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </Select>
+            <Select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setSelectedSubcategory('All'); // reset
+              }}
+            >
+              {categories.map((cat, index) => (
+                <option key={index} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </Select>
+
+            <label style={{ fontWeight: "600" }}>Subcategory:</label>
+
+            <Select
+              value={selectedSubcategory}
+              onChange={(e) => setSelectedSubcategory(e.target.value)}
+            >
+              {subcategories.map((sub, index) => (
+                <option key={index} value={sub}>
+                  {sub}
+                </option>
+              ))}
+            </Select>
             </RightControls>
       </TopBar>
 
       <TableContainer ref={tableRef}>
+        <div className="print-header" style={{ display: 'none' }}>
+
+            {/* ✅ REPORT TITLE */}
+            <div style={{
+              textAlign: 'center',
+              fontSize: '22px',
+              fontWeight: '700',
+              marginBottom: '12px',
+              color: '#164863',          // ✅ BLUE THEME
+              letterSpacing: '0.5px'
+            }}>
+              ITEMS TABLE
+            </div>
+
+            {/* ✅ CATEGORY + SUBCATEGORY */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: '12px',
+              fontWeight: '600',
+              color: '#164863',          // ✅ BLUE THEME
+              fontSize: '15px'
+            }}>
+              <div>
+                <span style={{ fontWeight: 700 }}>Category:</span> {selectedCategory}
+              </div>
+
+              <div>
+                <span style={{ fontWeight: 700 }}>Subcategory:</span> {selectedSubcategory}
+              </div>
+            </div>
+
+            {/* ✅ OPTIONAL DIVIDER (matches professional reports) */}
+            <div style={{
+              borderBottom: '2px solid #3582ab',
+              marginBottom: '10px'
+            }} />
+
+          </div>
         <Table>
           <thead>
             <tr>
@@ -166,6 +255,7 @@ const ItemsTable = () => {
               <Th>Item Name</Th>
               <Th>Unit</Th>
               <Th>Category</Th>
+              <Th>Subcategory</Th>
               <Th>Minimum Quantity</Th>
             </tr>
           </thead>
@@ -177,6 +267,7 @@ const ItemsTable = () => {
                 <Td>{item.item_name}</Td>
                 <Td>{item.unit}</Td>
                 <Td>{item.category}</Td>
+                <Td>{item.sub_category}</Td>
                 <Td>{item.min_quantity}</Td>
               </tr>
             ))}

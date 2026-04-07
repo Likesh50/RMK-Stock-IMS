@@ -234,6 +234,26 @@ const ExportButton = styled.button`
   cursor: pointer;
 `;
 
+const PrintHeaderRow = styled.div`
+  display: none;
+
+  @media print {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 10px 0 16px;
+    padding: 0 4px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #000;
+  }
+`;
+
+const PrintLabel = styled.div`
+  display: flex;
+  gap: 6px;
+`;
+
 
 /* END styled components */
 
@@ -409,6 +429,19 @@ export const ProductStock = () => {
             </RefreshButton>
           </Controls>
         </ControlsCard>
+
+        {/* ✅ PRINT HEADER (ONLY FOR PRINT) */}
+        <PrintHeaderRow>
+          <PrintLabel>
+            <span>Category/Subcategory:</span>
+            <span>{selectedCategory || '-'}</span>
+          </PrintLabel>
+
+          <PrintLabel>
+            <span>Item:</span>
+            <span>{selectedItem?.label || '-'}</span>
+          </PrintLabel>
+        </PrintHeaderRow>
 
         <ItemTableWrap>
           <ItemTable>
