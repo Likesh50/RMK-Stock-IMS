@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import axios from 'axios';
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
@@ -40,6 +40,82 @@ const FilterContainer = styled.div`
   @media print {
     display: none;
   }
+`;
+
+const CategoryDropdown = styled.div`
+  position: relative;
+  min-width: 220px;
+`;
+
+const CategoryToggle = styled.button`
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #164863;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  gap: 10px;
+
+  &:hover {
+    border-color: #4f8ccf;
+  }
+`;
+
+const CategoryText = styled.span`
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+`;
+
+const CategoryMenu = styled.div`
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  padding: 8px 0;
+`;
+
+const CategoryOption = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  color: #1f3f5b;
+  font-size: 14px;
+
+  &:hover {
+    background: #f6fbff;
+  }
+
+  input {
+    accent-color: #164863;
+  }
+`;
+
+const CategoryFooter = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-top: 1px solid #eef3f7;
+  font-size: 13px;
+  color: #5f6d7a;
 `;
 
 /* Table */
@@ -132,18 +208,17 @@ const ItemTable = styled.table`
 
 /* Meta section */
 const MetaInfo = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 40px;
-  margin: 20px 0 20px 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  row-gap: 15px;
+  column-gap: 40px;
+  margin: 20px 0 30px 0;
   color: #164863;
   text-align: left;
 
   div {
     display: flex;
     flex-direction: column;
-    min-width: 160px;
   }
 
   .meta-label {
@@ -155,12 +230,14 @@ const MetaInfo = styled.div`
   .meta-value {
     font-weight: 500;
     font-size: 16px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   @media print {
-    gap: 5px;
-    margin: 5px 0 5px 0;
-    .meta-label, .meta-value { font-size: 14px; }
+    grid-template-columns: repeat(4, 1fr);
+    font-size: 14px;
   }
 `;
 
@@ -206,12 +283,8 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
 
   // Dropdown state
   const [selectedItem, setSelectedItem] = useState('');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
-
-  // Pull locationid from localStorage
-  const [selectedId] = useState(() => {
-    return localStorage.getItem('locationid') || '';
-  });
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedLocations, setSelectedLocations] = useState([]);
 
   // Locations loaded from sessionStorage (userlocations)
   const [locations, setLocations] = useState([]);
@@ -226,52 +299,87 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
     }
   }, []);
 
-  // Derive selected location name from the locations array (fallbacks handled below)
-  const selectedLocationNameFromSession = locations.find(
-    loc => String(loc.location_id) === String(selectedId)
-  )?.location_name || '';
+  const categoryMenuRef = useRef(null);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!categoryMenuOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
+        setCategoryMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [categoryMenuOpen]);
+
+  const selectedLocationNameFromSession =
+    selectedLocations.length === 0 ||
+    selectedLocations.length === locations.length
+      ? 'All Locations'
+      : selectedLocations
+          .map(id =>
+            locations.find(loc => String(loc.location_id) === String(id))?.location_name
+          )
+          .filter(Boolean)
+          .join(', ');
 
   // Backend-returned grand total (fallback to computed if absent)
   const [backendGrandTotal, setBackendGrandTotal] = useState(null);
 
   useEffect(() => {
-    if (!selectedId) {
-      console.warn("No locationid found in localStorage");
+    if (!locations.length) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/purchaseReport`, {
-      params: {
-        startDate: fromDate,
-        endDate: toDate,
-        location_id: selectedId
-      }
-    })
-    .then(res => {
-      const resp = res.data;
-      const rows = Array.isArray(resp.data) ? resp.data : [];
-      // Normalize numbers
-      const normalized = rows.map(r => ({
-        ...r,
-        quantity: Number(r.quantity) || 0,
-        price: Number(r.price || r.amount) || 0,
-        total: Number(r.total) || (Number(r.quantity || 0) * Number(r.price || r.amount || 0))
-      }));
-      setData(normalized);
-      if (typeof resp.grandTotal !== 'undefined' && resp.grandTotal !== null) {
-        setBackendGrandTotal(Number(resp.grandTotal));
-      } else {
+    const fetchData = async () => {
+      try {
+        let combined = [];
+
+        const locationsToFetch =
+          selectedLocations.length > 0
+            ? locations.filter(loc =>
+                selectedLocations.includes(String(loc.location_id))
+              )
+            : locations;
+
+        for (const loc of locationsToFetch) {
+          const res = await axios.get(`${import.meta.env.VITE_RMK_MESS_URL}/report/purchaseReport`, {
+            params: {
+              startDate: fromDate,
+              endDate: toDate,
+              location_id: loc.location_id
+            }
+          });
+
+          const resp = res.data;
+          const rows = Array.isArray(resp.data) ? resp.data : [];
+          const normalized = rows.map(r => ({
+            ...r,
+            location_name: loc.location_name,
+            quantity: Number(r.quantity) || 0,
+            price: Number(r.price || r.amount) || 0,
+            total: Number(r.total) || (Number(r.quantity || 0) * Number(r.price || r.amount || 0))
+          }));
+
+          combined = [...combined, ...normalized];
+        }
+
+        setData(combined);
         setBackendGrandTotal(null);
+      } catch (err) {
+        console.error("Error fetching report data:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error("Error fetching report data:", err);
-      setLoading(false);
-    });
-  }, [fromDate, toDate, selectedId]);
+    };
+
+    fetchData();
+  }, [fromDate, toDate, selectedLocations, locations]);
 
   const formatNumber = (number) => {
     return Number(number).toFixed(2);
@@ -289,20 +397,48 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
   };
 
   // Unique items and categories for filters
-  const uniqueItems = [...new Set(data.map(row => row.item_name))];
-  const uniqueSubcategories = [...new Set(data.map(row => row.category))];
+  const uniqueItems = [...new Set(data.map(row => row.item_name).filter(Boolean))];
+  const uniqueCategories = [...new Set(data.map(row => row.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   // Filtering
   const filteredData = data.filter(row => {
     return (
       (selectedItem ? row.item_name === selectedItem : true) &&
-      (selectedSubcategory ? row.category === selectedSubcategory : true)
+      (selectedCategories.length > 0 ? selectedCategories.includes(row.category) : true)
     );
   });
 
+  const allCategoriesSelected =
+    uniqueCategories.length > 0 && selectedCategories.length === uniqueCategories.length;
+
+  const selectedCategoryDisplay =
+    selectedCategories.length === 0 || allCategoriesSelected
+      ? 'All'
+      : uniqueCategories.filter(category => selectedCategories.includes(category)).join(', ');
+
+  const sortedFilteredData = [...filteredData].sort((a, b) => {
+    const categoryCompare = (a.category || '').localeCompare(b.category || '');
+    if (categoryCompare !== 0) return categoryCompare;
+
+    const dateA = new Date(a.purchase_date);
+    const dateB = new Date(b.purchase_date);
+    if (!isNaN(dateA) && !isNaN(dateB) && dateA.getTime() !== dateB.getTime()) {
+      return dateA - dateB;
+    }
+
+    return (a.item_name || '').localeCompare(b.item_name || '');
+  });
+
   // Compute grand total if backend didn't provide it
-  const computedGrandTotal = filteredData.reduce((sum, row) => sum + (Number(row.total) || (Number(row.quantity || 0) * Number(row.price || 0))), 0);
+  const computedGrandTotal = sortedFilteredData.reduce((sum, row) => sum + (Number(row.total) || (Number(row.quantity || 0) * Number(row.price || 0))), 0);
   const grandTotalToShow = (backendGrandTotal !== null) ? backendGrandTotal : computedGrandTotal;
+
+  const groupedData = filteredData.reduce((acc, row) => {
+    const key = row.location_name || 'Unknown';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(row);
+    return acc;
+  }, {});
 
   // Determine institution name:
   const locationnameKey = localStorage.getItem('locationname') || '';
@@ -375,7 +511,11 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
         </div>
         <div>
           <span className="meta-label">Category</span>
-          <span className="meta-value">{selectedSubcategory || 'All'}</span>
+          <span className="meta-value" title={selectedCategoryDisplay}>{selectedCategoryDisplay}</span>
+        </div>
+        <div>
+          <span className="meta-label">Location</span>
+          <span className="meta-value" title={selectedLocationNameFromSession}>{selectedLocationNameFromSession}</span>
         </div>
       </MetaInfo>
 
@@ -395,17 +535,184 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
           </select>
         </div>
 
+        <div ref={categoryMenuRef} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{ margin: 0 }}>Category: </label>
+          <CategoryDropdown>
+            <CategoryToggle
+              type="button"
+              onClick={() => setCategoryMenuOpen(prev => !prev)}
+              title={selectedCategoryDisplay}
+            >
+              <CategoryText>{selectedCategoryDisplay}</CategoryText>
+              <span>{categoryMenuOpen ? '▴' : '▾'}</span>
+            </CategoryToggle>
+            {categoryMenuOpen && (
+              <CategoryMenu>
+                {uniqueCategories.map((cat, i) => (
+                  <CategoryOption key={i}>
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.includes(cat)}
+                      onChange={() => {
+                        setSelectedCategories(prev =>
+                          prev.includes(cat)
+                            ? prev.filter(item => item !== cat)
+                            : [...prev, cat]
+                        );
+                      }}
+                    />
+                    <span>{cat}</span>
+                  </CategoryOption>
+                ))}
+                <CategoryFooter>
+                  <span>{selectedCategories.length === 0 ? 'Showing all categories' : `${selectedCategories.length} selected`}</span>
+                  {selectedCategories.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategories([])}
+                      style={{
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        background: '#f8f9fb',
+                        color: '#164863',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </CategoryFooter>
+              </CategoryMenu>
+            )}
+          </CategoryDropdown>
+        </div>
+
         <div>
-          <label>Subcategory: </label>
-          <select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)}>
-            <option value="">All</option>
-            {uniqueSubcategories.map((cat, i) => (
-              <option key={i} value={cat}>{cat}</option>
+          <label>Location: </label>
+          <select
+            value=""
+            onChange={(e) => {
+              const value = e.target.value;
+
+              if (value === "ALL") {
+                const allIds = locations.map(loc => String(loc.location_id));
+                setSelectedLocations(allIds);
+              } else {
+                if (selectedLocations.includes(value)) {
+                  setSelectedLocations(selectedLocations.filter(id => id !== value));
+                } else {
+                  setSelectedLocations([...selectedLocations, value]);
+                }
+              }
+            }}
+          >
+            <option value="">Select Locations</option>
+            <option value="ALL">
+              {selectedLocations.length === locations.length ? "✓ All" : "All"}
+            </option>
+
+            {locations.map(loc => (
+              <option key={loc.location_id} value={loc.location_id}>
+                {selectedLocations.includes(String(loc.location_id))
+                  ? `✓ ${loc.location_name}`
+                  : loc.location_name}
+              </option>
             ))}
           </select>
         </div>
       </FilterContainer>
 
+      {(
+        selectedLocations.length === 0
+          ? locations.map(loc => loc.location_name)
+          : selectedLocations
+              .map(id =>
+                locations.find(loc => String(loc.location_id) === String(id))?.location_name
+              )
+              .filter(Boolean)
+      ).map((locationName, groupIndex) => {
+        const rows = (groupedData[locationName] || []).sort((a, b) => {
+          const categoryCompare = (a.category || '').localeCompare(b.category || '');
+          if (categoryCompare !== 0) return categoryCompare;
+
+          const dateA = new Date(a.purchase_date);
+          const dateB = new Date(b.purchase_date);
+          if (!isNaN(dateA) && !isNaN(dateB) && dateA.getTime() !== dateB.getTime()) {
+            return dateA - dateB;
+          }
+
+          return (a.item_name || '').localeCompare(b.item_name || '');
+        });
+
+        const locationTotal = rows.reduce(
+          (sum, row) => sum + (Number(row.total) || (Number(row.quantity || 0) * Number(row.price || 0))),
+          0
+        );
+
+        return (
+          <div key={groupIndex} style={{ marginBottom: 40 }}>
+            <h3 style={{ marginTop: 25 }}>
+              Location: {locationName}
+            </h3>
+
+            <ItemTable>
+              <thead>
+                <tr>
+                  {columns.sno && <th className="sno center">SL.NO</th>}
+                  {columns.date && <th className="date center">DATE</th>}
+                  {columns.shop && <th className="shop left">SHOP NAME</th>}
+                  {columns.item && <th className="item left">ITEM NAME</th>}
+                  {columns.category && <th className="category left">CATEGORY</th>}
+                  {columns.qty && <th className="qty right">QTY</th>}
+                  {columns.price && <th className="price right">PRICE</th>}
+                  {columns.total && <th className="total right">TOTAL</th>}
+                </tr>
+              </thead>
+
+              <tbody>
+                {rows.length > 0 ? (
+                  <>
+                    {rows.map((row, index) => (
+                      <tr key={index}>
+                        {columns.sno && <td className="center">{index + 1}</td>}
+                        {columns.date && <td className="center">{formatDate(row.purchase_date)}</td>}
+                        {columns.shop && <td className="left">{row.shop_name || '—'}</td>}
+                        {columns.item && <td className="left">{row.item_name || '—'}</td>}
+                        {columns.category && <td className="left">{row.category || '—'}</td>}
+                        {columns.qty && <td className="right">{Number(row.quantity) || 0}</td>}
+                        {columns.price && <td className="right">{formatNumber(row.price)}</td>}
+                        {columns.total && <td className="right">{formatNumber(row.total)}</td>}
+                      </tr>
+                    ))}
+
+                    <tr>
+                      <td colSpan={Math.max(1, visibleCols - 1)} style={{ textAlign: 'right', fontWeight: '700', paddingRight: 12, background: '#fafafa' }}>
+                        Total for {locationName}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '700', paddingRight: 16, background: '#fafafa' }}>
+                        {formatNumber(locationTotal)}
+                      </td>
+                    </tr>
+                  </>
+                ) : (
+                  <tr>
+                    <td colSpan={Math.max(1, visibleCols)} style={{ textAlign: 'center', padding: 20 }}>
+                      No data available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </ItemTable>
+          </div>
+        );
+      })}
+
+      <h3 style={{ textAlign: 'right', marginTop: 20 }}>
+        GRAND TOTAL: {formatNumber(grandTotalToShow)}
+      </h3>
+
+      {false && (
       <ItemTable>
         <thead>
           <tr>
@@ -421,8 +728,8 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
         </thead>
 
         <tbody>
-          {filteredData.length > 0 ? (
-            filteredData.map((row, index) => (
+          {sortedFilteredData.length > 0 ? (
+            sortedFilteredData.map((row, index) => (
               <tr key={index}>
                 {columns.sno && <td className="center">{index + 1}</td>}
                 {columns.date && <td className="center">{formatDate(row.purchase_date)}</td>}
@@ -458,6 +765,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
           </tr>
         </tbody>
       </ItemTable>
+      )}
 
       <Footer>
         Copyright © 2024. All rights reserved to DEPARTMENT of INFORMATION TECHNOLOGY - RMKEC

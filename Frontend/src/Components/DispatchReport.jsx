@@ -1,13 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import Axios from 'axios';
 import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
-import { Autocomplete, TextField } from '@mui/material';
-
-import Checkbox from '@mui/material/Checkbox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
 
 
 
@@ -46,6 +41,82 @@ const FilterContainer = styled.div`
   @media print {
     display: none; /* hide filters in print */
   }
+`;
+
+const CategoryDropdown = styled.div`
+  position: relative;
+  min-width: 220px;
+`;
+
+const CategoryToggle = styled.button`
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #164863;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  gap: 10px;
+
+  &:hover {
+    border-color: #4f8ccf;
+  }
+`;
+
+const CategoryText = styled.span`
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+`;
+
+const CategoryMenu = styled.div`
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  padding: 8px 0;
+`;
+
+const CategoryOption = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  color: #1f3f5b;
+  font-size: 14px;
+
+  &:hover {
+    background: #f6fbff;
+  }
+
+  input {
+    accent-color: #164863;
+  }
+`;
+
+const CategoryFooter = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-top: 1px solid #eef3f7;
+  font-size: 13px;
+  color: #5f6d7a;
 `;
 
 const ItemTable = styled.table`
@@ -88,12 +159,23 @@ const ItemTable = styled.table`
     color: #000;
   }
 
-  /* Narrow fixed-ish columns - keep these compact */
-  th.sno, td.sno { width: 60px; min-width: 50px; }        /* serial */
-  th.date, td.date { width: 110px; min-width: 90px; }     /* date */
-  th.qty, td.qty { width: 80px; min-width: 60px; }        /* quantity */
-  th.price, td.price { width: 90px; min-width: 70px; }    /* price */
-  th.total, td.total { width: 100px; min-width: 80px; }   /* total */
+  /* Narrow fixed-ish columns - keep these compact for 11 columns */
+  th.sno, td.sno { width: 50px; min-width: 45px; }        /* serial - reduced */
+  th.date, td.date { width: 100px; min-width: 85px; }     /* date - reduced */
+  th.qty, td.qty { width: 70px; min-width: 55px; }        /* quantity - reduced */
+  th.price, td.price { width: 80px; min-width: 65px; }    /* price - reduced */
+  th.total, td.total { width: 90px; min-width: 75px; }    /* total - reduced */
+
+  /* CATEGORY column: compact but readable */
+  th.category, td.category {
+    width: 120px;
+    min-width: 100px;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    padding: 6px 8px;
+  }
 
   /* ITEM column: allow it to expand and wrap as needed */
   th.item, td.item {
@@ -105,13 +187,15 @@ const ItemTable = styled.table`
     font-size: 14px;
   }
 
-  /* For other text-heavy columns (block_name, receiver), allow wrapping but keep small padding */
+  /* For other text-heavy columns (block_name, receiver, incharge, sticker_no), allow wrapping but keep small padding */
   td.block_name, th.block_name,
-  td.receiver, th.receiver {
+  td.receiver, th.receiver,
+  td.incharge, th.incharge,
+  td.sticker_no, th.sticker_no {
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
-    padding: 6px 8px;
+    padding: 6px 6px;
   }
 
   /* On print, make font a bit smaller but allow wrapping to avoid truncation */
@@ -200,6 +284,9 @@ const MetaInfo = styled.div`
   .meta-value {
     font-weight: 500;
     font-size: 16px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   @media print {
@@ -231,13 +318,10 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  //blocks
-  const [selectedBlock, setSelectedBlock] = useState('');
-
-
   // Filters (client-side)
   const [selectedItem, setSelectedItem] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState([]); // Changed to array for multi-select
+  const [selectedBlock, setSelectedBlock] = useState('');
 
   // 🔹 Location selection (multi-select support)
 
@@ -257,6 +341,22 @@ useEffect(() => {
     }
   }
 }, []);
+
+const categoryMenuRef = useRef(null);
+const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+
+useEffect(() => {
+  if (!categoryMenuOpen) return;
+
+  const handleClickOutside = (event) => {
+    if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
+      setCategoryMenuOpen(false);
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, [categoryMenuOpen]);
 
 // Compute display name for header/meta
 const selectedLocationNameFromSession =
@@ -345,16 +445,16 @@ const selectedLocationNameFromSession =
 
   // Extract unique values for dropdowns
   const uniqueItems = [...new Set(data.map(row => row.item_name).filter(Boolean))];
-  const uniqueCategories = [...new Set(data.map(row => row.category).filter(Boolean))];
+  const uniqueCategories = [...new Set(data.map(row => row.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)); // Sort alphabetically
   const uniqueBlocks = [...new Set(
   data.map(row => row.block_name).filter(Boolean)
-)];
+)].sort((a, b) => a.localeCompare(b)); // Sort alphabetically
 
   // Filter client-side
   const filteredData = data.filter(row => {
     return (
       (selectedItem ? row.item_name === selectedItem : true) &&
-      (selectedCategory ? row.category === selectedCategory : true) &&
+      (selectedCategories.length > 0 ? selectedCategories.includes(row.category) : true) && // Updated for multi-select
       (selectedBlock ? row.block_name === selectedBlock : true)
     );
   });
@@ -375,17 +475,13 @@ const selectedLocationNameFromSession =
   };
 
   // If an item is selected -> hide item and category columns (existing behavior).
-  // If category selected -> hide category column only.
-  // But if visibleColumns explicitly set, respect that toggle first, then apply filter logic to hide duplicates:
+  // Category column should always be visible to show the category for each row
   let showItemColumn = columns.item;
-  let showCategoryColumn = columns.category;
+  let showCategoryColumn = true; // Always show category column
 
   if (selectedItem) {
     showItemColumn = false;
-    showCategoryColumn = false;
-  } else if (selectedCategory) {
-    showCategoryColumn = false;
-    // keep item column as per columns.item
+    // Keep category column visible even when item is selected
   }
 
   // Build final columns map used for rendering
@@ -393,7 +489,7 @@ const selectedLocationNameFromSession =
     sno: columns.sno,
     dispatchDate: columns.dispatchDate,
     item: showItemColumn,
-    category: showCategoryColumn,
+    category: showCategoryColumn, // Always show category column
     quantity: columns.quantity,
     block_name: columns.block_name,
     sticker_no: columns.sticker_no,
@@ -402,6 +498,14 @@ const selectedLocationNameFromSession =
     price: columns.price,
     total: columns.total
   };
+
+  const allCategoriesSelected =
+    uniqueCategories.length > 0 && selectedCategories.length === uniqueCategories.length;
+
+  const selectedCategoryDisplay =
+    selectedCategories.length === 0 || allCategoriesSelected
+      ? 'All'
+      : uniqueCategories.filter(category => selectedCategories.includes(category)).join(', ');
 
   // Count visible columns for colspan calculations
   const visibleCount = Object.values(finalColumns).filter(Boolean).length;
@@ -470,7 +574,9 @@ const selectedLocationNameFromSession =
         </div>
         <div>
           <span className="meta-label">Category</span>
-          <span className="meta-value">{selectedCategory || 'All'}</span>
+          <span className="meta-value" title={selectedCategoryDisplay}>
+            {selectedCategoryDisplay}
+          </span>
         </div>
         <div>
           <span className="meta-label">Block</span>
@@ -493,14 +599,57 @@ const selectedLocationNameFromSession =
             ))}
           </select>
         </div>
-        <div>
-          <label>Category: </label>
-          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-            <option value="">All</option>
-            {uniqueCategories.map((cat, i) => (
-              <option key={i} value={cat}>{cat}</option>
-            ))}
-          </select>
+        <div ref={categoryMenuRef} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{ margin: 0 }}>Category: </label>
+          <CategoryDropdown>
+            <CategoryToggle
+              type="button"
+              onClick={() => setCategoryMenuOpen(prev => !prev)}
+              title={selectedCategoryDisplay}
+            >
+              <CategoryText>{selectedCategoryDisplay}</CategoryText>
+              <span>{categoryMenuOpen ? '▴' : '▾'}</span>
+            </CategoryToggle>
+            {categoryMenuOpen && (
+              <CategoryMenu>
+                {uniqueCategories.map((cat, i) => (
+                  <CategoryOption key={i}>
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.includes(cat)}
+                      onChange={() => {
+                        setSelectedCategories(prev =>
+                          prev.includes(cat)
+                            ? prev.filter(item => item !== cat)
+                            : [...prev, cat]
+                        );
+                      }}
+                    />
+                    <span>{cat}</span>
+                  </CategoryOption>
+                ))}
+                <CategoryFooter>
+                  <span>{selectedCategories.length === 0 ? 'Showing all categories' : `${selectedCategories.length} selected`}</span>
+                  {selectedCategories.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategories([])}
+                      style={{
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        background: '#f8f9fb',
+                        color: '#164863',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </CategoryFooter>
+              </CategoryMenu>
+            )}
+          </CategoryDropdown>
         </div>
         <div>
           <label>Block: </label>
@@ -564,17 +713,17 @@ const selectedLocationNameFromSession =
 ).map((locationName, groupIndex) => {
 
   const rows = (groupedData[locationName] || []).sort((a, b) => {
-  const dateA = new Date(a.dispatch_date);
-  const dateB = new Date(b.dispatch_date);
+    const categoryA = (a.category || '').toString();
+    const categoryB = (b.category || '').toString();
 
-  // Step 1: Sort by date (keep grouping intact)
-  if (dateA.getTime() !== dateB.getTime()) {
+    if (categoryA !== categoryB) {
+      return categoryA.localeCompare(categoryB);
+    }
+
+    const dateA = new Date(a.dispatch_date);
+    const dateB = new Date(b.dispatch_date);
     return dateA - dateB;
-  }
-
-  // Step 2: SAME DATE → sort category A–Z
-  return (a.category || '').localeCompare(b.category || '');
-});
+  });
 
   const locationTotal = rows.reduce(
     (sum, row) => sum + (Number(row.total) || 0),
