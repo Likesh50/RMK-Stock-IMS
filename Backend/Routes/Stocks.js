@@ -15,29 +15,65 @@ router.get('/availablestock', async (req, res) => {
     }
 
     const query = `
-      SELECT 
-        i.item_name AS itemName,
-        i.sub_category AS sub_category,
-        i.category AS category,
-        i.unit AS unit,
-        SUM(s.quantity) AS totalQuantity
-      FROM stock s
-      JOIN items i ON s.item_id = i.item_id
-      WHERE s.location_id = ?
-      GROUP BY i.item_name, i.sub_category, i.category, i.unit
-      ORDER BY i.item_name,i.category;
-    `;
+  SELECT 
+    s.item_id,
+    i.item_name AS itemName,
+    i.sub_category AS sub_category,
+    i.category AS category,
+    i.unit AS unit,
+
+    SUM(s.quantity) AS totalQuantity,
+
+    COALESCE(
+      MAX(
+        (
+          SELECT p.amount
+          FROM purchases p
+          WHERE p.item_id = s.item_id
+          AND p.location_id = s.location_id
+          ORDER BY p.purchase_date DESC
+          LIMIT 1
+        )
+      ),
+      0
+    ) AS price
+
+  FROM stock s
+
+  JOIN items i 
+    ON s.item_id = i.item_id
+
+  WHERE s.location_id = ?
+
+  GROUP BY 
+    s.item_id,
+    i.item_name,
+    i.sub_category,
+    i.category,
+    i.unit
+
+  ORDER BY 
+    i.category,
+    i.item_name;
+`;
 
     const [rows] = await db.query(query, [locationId]);
 
-    const formattedData = rows.map(stock => ({
-      itemName: stock.itemName,
-      
-      subCategory: stock.sub_category,
-      category: stock.category,
-      quantity: parseFloat(stock.totalQuantity),
-      unit: stock.unit
-    }));
+    const formattedData = rows.map(stock => {
+      const quantity = Number(stock.totalQuantity) || 0;
+      const price = Number(stock.price) || 0;
+
+      return {
+        item_id: stock.item_id,
+        itemName: stock.itemName,
+        subCategory: stock.sub_category,
+        category: stock.category,
+        quantity,
+        unit: stock.unit,
+        price,
+        total: quantity * price
+      };
+    });
 
     res.json({
       success: true,

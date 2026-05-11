@@ -119,6 +119,56 @@ const CategoryFooter = styled.div`
   color: #5f6d7a;
 `;
 
+const BlockDropdown = styled.div`
+  position: relative;
+  min-width: 220px;
+`;
+
+const BlockToggle = styled.button`
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #164863;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  gap: 10px;
+
+  &:hover {
+    border-color: #4f8ccf;
+  }
+`;
+
+const LocationDropdown = styled.div`
+  position: relative;
+  min-width: 220px;
+`;
+
+const LocationToggle = styled.button`
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #164863;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  gap: 10px;
+
+  &:hover {
+    border-color: #4f8ccf;
+  }
+`;
+
 const ItemTable = styled.table`
   width: 100%;
   border-collapse: collapse;
@@ -321,12 +371,13 @@ export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColum
   // Filters (client-side)
   const [selectedItem, setSelectedItem] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]); // Changed to array for multi-select
-  const [selectedBlock, setSelectedBlock] = useState('');
+  const [selectedBlocks, setSelectedBlocks] = useState([]);
 
   // 🔹 Location selection (multi-select support)
-
-const [locations, setLocations] = useState([]);
-const [selectedLocations, setSelectedLocations] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [selectedLocations, setSelectedLocations] = useState([]);
+  const [blockMenuOpen, setBlockMenuOpen] = useState(false);
+  const [locationMenuOpen, setLocationMenuOpen] = useState(false);
 
 // Load userlocations from sessionStorage
 useEffect(() => {
@@ -358,6 +409,35 @@ useEffect(() => {
   return () => document.removeEventListener('mousedown', handleClickOutside);
 }, [categoryMenuOpen]);
 
+const blockMenuRef = useRef(null);
+const locationMenuRef = useRef(null);
+
+useEffect(() => {
+  if (!blockMenuOpen) return;
+
+  const handleClickOutside = (event) => {
+    if (blockMenuRef.current && !blockMenuRef.current.contains(event.target)) {
+      setBlockMenuOpen(false);
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, [blockMenuOpen]);
+
+useEffect(() => {
+  if (!locationMenuOpen) return;
+
+  const handleClickOutside = (event) => {
+    if (locationMenuRef.current && !locationMenuRef.current.contains(event.target)) {
+      setLocationMenuOpen(false);
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, [locationMenuOpen]);
+
 // Compute display name for header/meta
 const selectedLocationNameFromSession =
   selectedLocations.length === 0 ||
@@ -369,6 +449,16 @@ const selectedLocationNameFromSession =
         )
         .filter(Boolean)
         .join(", ");
+
+const selectedLocationDisplay =
+  selectedLocations.length === 0 || selectedLocations.length === locations.length
+    ? 'All'
+    : selectedLocations
+        .map(id =>
+          locations.find(loc => String(loc.location_id) === String(id))?.location_name
+        )
+        .filter(Boolean)
+        .join(', ');
 
 
 
@@ -447,15 +537,24 @@ const selectedLocationNameFromSession =
   const uniqueItems = [...new Set(data.map(row => row.item_name).filter(Boolean))];
   const uniqueCategories = [...new Set(data.map(row => row.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)); // Sort alphabetically
   const uniqueBlocks = [...new Set(
-  data.map(row => row.block_name).filter(Boolean)
-)].sort((a, b) => a.localeCompare(b)); // Sort alphabetically
+    data.map(row => row.block_name).filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b)); // Sort alphabetically
+
+  const allBlocksSelected =
+    uniqueBlocks.length > 0 && selectedBlocks.length === uniqueBlocks.length;
+
+  const selectedBlockDisplay =
+    selectedBlocks.length === 0 || allBlocksSelected
+      ? 'All'
+      : selectedBlocks.join(', ');
 
   // Filter client-side
   const filteredData = data.filter(row => {
     return (
       (selectedItem ? row.item_name === selectedItem : true) &&
-      (selectedCategories.length > 0 ? selectedCategories.includes(row.category) : true) && // Updated for multi-select
-      (selectedBlock ? row.block_name === selectedBlock : true)
+      (selectedCategories.length > 0 ? selectedCategories.includes(row.category) : true) &&
+      (selectedBlocks.length > 0 ? selectedBlocks.includes(row.block_name) : true) &&
+      (selectedLocations.length > 0 ? selectedLocations.includes(String(row.location_id)) : true)
     );
   });
 
@@ -580,7 +679,11 @@ const selectedLocationNameFromSession =
         </div>
         <div>
           <span className="meta-label">Block</span>
-          <span className="meta-value">{selectedBlock || 'All'}</span>
+          <span className="meta-value" title={selectedBlockDisplay}>{selectedBlockDisplay}</span>
+        </div>
+        <div>
+          <span className="meta-label">Location</span>
+          <span className="meta-value" title={selectedLocationDisplay}>{selectedLocationDisplay}</span>
         </div>
       </MetaInfo>
 
@@ -651,52 +754,112 @@ const selectedLocationNameFromSession =
             )}
           </CategoryDropdown>
         </div>
-        <div>
-          <label>Block: </label>
-          <select
-            value={selectedBlock}
-            onChange={(e) => setSelectedBlock(e.target.value)}
-          >
-            <option value="">All</option>
-            {uniqueBlocks.map((block, i) => (
-              <option key={i} value={block}>{block}</option>
-            ))}
-          </select>
+        <div ref={blockMenuRef} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{ margin: 0 }}>Block: </label>
+          <BlockDropdown>
+            <BlockToggle
+              type="button"
+              onClick={() => setBlockMenuOpen(prev => !prev)}
+              title={selectedBlockDisplay}
+            >
+              <CategoryText>{selectedBlockDisplay}</CategoryText>
+              <span>{blockMenuOpen ? '▴' : '▾'}</span>
+            </BlockToggle>
+            {blockMenuOpen && (
+              <CategoryMenu>
+                {uniqueBlocks.map((block, i) => (
+                  <CategoryOption key={i}>
+                    <input
+                      type="checkbox"
+                      checked={selectedBlocks.includes(block)}
+                      onChange={() => {
+                        setSelectedBlocks(prev =>
+                          prev.includes(block)
+                            ? prev.filter(item => item !== block)
+                            : [...prev, block]
+                        );
+                      }}
+                    />
+                    <span>{block}</span>
+                  </CategoryOption>
+                ))}
+                <CategoryFooter>
+                  <span>{selectedBlocks.length === 0 ? 'Showing all blocks' : `${selectedBlocks.length} selected`}</span>
+                  {selectedBlocks.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBlocks([])}
+                      style={{
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        background: '#f8f9fb',
+                        color: '#164863',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </CategoryFooter>
+              </CategoryMenu>
+            )}
+          </BlockDropdown>
         </div>
-        
-        <div>
-  <label>Location: </label>
-  <select
-    value=""
-    onChange={(e) => {
-      const value = e.target.value;
 
-      if (value === "ALL") {
-        const allIds = locations.map(loc => String(loc.location_id));
-        setSelectedLocations(allIds);
-      } else {
-        if (selectedLocations.includes(value)) {
-          setSelectedLocations(selectedLocations.filter(id => id !== value));
-        } else {
-          setSelectedLocations([...selectedLocations, value]);
-        }
-      }
-    }}
-  >
-    <option value="">Select Locations</option>
-    <option value="ALL">
-      {selectedLocations.length === locations.length ? "✓ All" : "All"}
-    </option>
-
-    {locations.map(loc => (
-      <option key={loc.location_id} value={loc.location_id}>
-        {selectedLocations.includes(String(loc.location_id))
-          ? `✓ ${loc.location_name}`
-          : loc.location_name}
-      </option>
-    ))}
-  </select>
-</div>
+        <div ref={locationMenuRef} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{ margin: 0 }}>Location: </label>
+          <LocationDropdown>
+            <LocationToggle
+              type="button"
+              onClick={() => setLocationMenuOpen(prev => !prev)}
+              title={selectedLocationDisplay}
+            >
+              <CategoryText>{selectedLocationDisplay}</CategoryText>
+              <span>{locationMenuOpen ? '▴' : '▾'}</span>
+            </LocationToggle>
+            {locationMenuOpen && (
+              <CategoryMenu>
+                {locations.map((loc) => (
+                  <CategoryOption key={loc.location_id}>
+                    <input
+                      type="checkbox"
+                      checked={selectedLocations.includes(String(loc.location_id))}
+                      onChange={() => {
+                        const locId = String(loc.location_id);
+                        setSelectedLocations(prev =>
+                          prev.includes(locId)
+                            ? prev.filter(id => id !== locId)
+                            : [...prev, locId]
+                        );
+                      }}
+                    />
+                    <span>{loc.location_name}</span>
+                  </CategoryOption>
+                ))}
+                <CategoryFooter>
+                  <span>{selectedLocations.length === 0 ? 'Showing all locations' : `${selectedLocations.length} selected`}</span>
+                  {selectedLocations.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLocations([])}
+                      style={{
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        background: '#f8f9fb',
+                        color: '#164863',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </CategoryFooter>
+              </CategoryMenu>
+            )}
+          </LocationDropdown>
+        </div>
 
 
 </FilterContainer>

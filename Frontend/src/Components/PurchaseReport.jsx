@@ -118,6 +118,74 @@ const CategoryFooter = styled.div`
   color: #5f6d7a;
 `;
 
+const LocationDropdown = styled.div`
+  position: relative;
+  min-width: 220px;
+`;
+
+const LocationToggle = styled.button`
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #164863;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  gap: 10px;
+
+  &:hover {
+    border-color: #4f8ccf;
+  }
+`;
+
+const LocationMenu = styled.div`
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  padding: 8px 0;
+`;
+
+const LocationOption = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  color: #1f3f5b;
+  font-size: 14px;
+
+  &:hover {
+    background: #f6fbff;
+  }
+
+  input {
+    accent-color: #164863;
+  }
+`;
+
+const LocationFooter = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-top: 1px solid #eef3f7;
+  font-size: 13px;
+  color: #5f6d7a;
+`;
+
 /* Table */
 /* Replace your current ItemTable with this */
 const ItemTable = styled.table`
@@ -302,6 +370,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
   const categoryMenuRef = useRef(null);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
 
+  const locationMenuRef = useRef(null);
+  const [locationMenuOpen, setLocationMenuOpen] = useState(false);
+
   useEffect(() => {
     if (!categoryMenuOpen) return;
 
@@ -314,6 +385,19 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [categoryMenuOpen]);
+
+  useEffect(() => {
+    if (!locationMenuOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (locationMenuRef.current && !locationMenuRef.current.contains(event.target)) {
+        setLocationMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [locationMenuOpen]);
 
   const selectedLocationNameFromSession =
     selectedLocations.length === 0 ||
@@ -404,7 +488,8 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
   const filteredData = data.filter(row => {
     return (
       (selectedItem ? row.item_name === selectedItem : true) &&
-      (selectedCategories.length > 0 ? selectedCategories.includes(row.category) : true)
+      (selectedCategories.length > 0 ? selectedCategories.includes(row.category) : true) &&
+      (selectedLocations.length > 0 ? selectedLocations.includes(String(row.location_id)) : true)
     );
   });
 
@@ -588,38 +673,66 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
           </CategoryDropdown>
         </div>
 
-        <div>
-          <label>Location: </label>
-          <select
-            value=""
-            onChange={(e) => {
-              const value = e.target.value;
-
-              if (value === "ALL") {
-                const allIds = locations.map(loc => String(loc.location_id));
-                setSelectedLocations(allIds);
-              } else {
-                if (selectedLocations.includes(value)) {
-                  setSelectedLocations(selectedLocations.filter(id => id !== value));
-                } else {
-                  setSelectedLocations([...selectedLocations, value]);
-                }
-              }
-            }}
-          >
-            <option value="">Select Locations</option>
-            <option value="ALL">
-              {selectedLocations.length === locations.length ? "✓ All" : "All"}
-            </option>
-
-            {locations.map(loc => (
-              <option key={loc.location_id} value={loc.location_id}>
-                {selectedLocations.includes(String(loc.location_id))
-                  ? `✓ ${loc.location_name}`
-                  : loc.location_name}
-              </option>
-            ))}
-          </select>
+        <div ref={locationMenuRef} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{ margin: 0 }}>Location: </label>
+          <LocationDropdown>
+            <LocationToggle
+              type="button"
+              onClick={() => setLocationMenuOpen(prev => !prev)}
+            >
+              <span>
+                {selectedLocations.length === 0
+                  ? 'All'
+                  : selectedLocations.length === 1
+                  ? locations.find(loc => String(loc.location_id) === selectedLocations[0])?.location_name || selectedLocations[0]
+                  : selectedLocations
+                      .map(id => locations.find(loc => String(loc.location_id) === String(id))?.location_name)
+                      .filter(Boolean)
+                      .join(', ')}
+              </span>
+              <span>{locationMenuOpen ? '▴' : '▾'}</span>
+            </LocationToggle>
+            {locationMenuOpen && (
+              <LocationMenu>
+                {locations.map((loc) => (
+                  <LocationOption key={loc.location_id}>
+                    <input
+                      type="checkbox"
+                      checked={selectedLocations.includes(String(loc.location_id))}
+                      onChange={() => {
+                        const locId = String(loc.location_id);
+                        setSelectedLocations(prev =>
+                          prev.includes(locId)
+                            ? prev.filter(id => id !== locId)
+                            : [...prev, locId]
+                        );
+                      }}
+                    />
+                    <span>{loc.location_name}</span>
+                  </LocationOption>
+                ))}
+                <LocationFooter>
+                  <span>{selectedLocations.length === 0 ? 'Showing all locations' : `${selectedLocations.length} selected`}</span>
+                  {selectedLocations.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLocations([])}
+                      style={{
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        background: '#f8f9fb',
+                        color: '#164863',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </LocationFooter>
+              </LocationMenu>
+            )}
+          </LocationDropdown>
         </div>
       </FilterContainer>
 
