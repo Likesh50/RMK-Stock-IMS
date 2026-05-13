@@ -79,6 +79,9 @@ router.get('/dispatchReport', async (req, res) => {
         d.sticker_no,
         d.receiver,
         d.incharge,
+
+        d.remaining_quantity AS available_quantity,
+
         -- Latest per-item purchase price (any location)
         (
           SELECT p.amount
@@ -87,23 +90,30 @@ router.get('/dispatchReport', async (req, res) => {
           ORDER BY p.purchase_date DESC
           LIMIT 1
         ) AS price,
+
         -- total = quantity * price
-        (d.quantity * (
-          SELECT p.amount
-          FROM purchases p
-          WHERE p.item_id = i.item_id
-          ORDER BY p.purchase_date DESC
-          LIMIT 1
-        )) AS total,
+        (
+          d.quantity * (
+            SELECT p.amount
+            FROM purchases p
+            WHERE p.item_id = i.item_id
+            ORDER BY p.purchase_date DESC
+            LIMIT 1
+          )
+        ) AS total,
+
         'dispatch' AS source_type
-      FROM 
-        dispatch d
-      JOIN 
-        items i ON d.item_id = i.item_id
-      LEFT JOIN 
-        blocks b ON d.block_id = b.block_id
-      WHERE 
-        d.dispatch_date BETWEEN ? AND ?
+
+      FROM dispatch d
+
+      JOIN items i 
+        ON d.item_id = i.item_id
+
+      LEFT JOIN blocks b 
+        ON d.block_id = b.block_id
+
+
+      WHERE d.dispatch_date BETWEEN ? AND ?
     `;
 
     // ---- TRANSFER SELECT ----
@@ -118,6 +128,7 @@ router.get('/dispatchReport', async (req, res) => {
         NULL AS sticker_no,
         NULL AS receiver,
         NULL AS incharge,
+        NULL AS available_quantity,
         (
           SELECT p.amount
           FROM purchases p
@@ -190,6 +201,7 @@ router.get('/dispatchReport', async (req, res) => {
       category: r.category,
       sub_category: r.sub_category,
       quantity: Number(r.quantity) || 0,
+      available_quantity: Number(r.available_quantity) || 0,
       price: Number(r.price) || 0,
       total: Number(r.total) || 0,
       dispatch_date: r.dispatch_date,

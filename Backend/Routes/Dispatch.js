@@ -60,17 +60,42 @@ router.get('/stockAvailability/:item_id/:location_id', async (req, res) => {
 
       const currentQty = stockRows[0].quantity;
       const newQty = currentQty - quantity;
+      
+      console.log("CURRENT:", currentQty);
+      console.log("DISPATCH:", quantity);
+      console.log("NEW QTY:", newQty);
 
       if (newQty < 0) {
         throw new Error(`Insufficient stock for item_id ${item_id}`);
       }
 
       // Insert dispatch record (with new fields: block_id, sticker_no)
+      // Insert dispatch record with remaining stock snapshot
       await db.query(
         `INSERT INTO dispatch 
-          (item_id, quantity, receiver, incharge, dispatch_date, location_id, block_id, sticker_no) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [item_id, quantity, receiver, incharge, dispatch_date, location_id, block_id, sticker_no]
+          (
+            item_id,
+            quantity,
+            receiver,
+            incharge,
+            dispatch_date,
+            location_id,
+            block_id,
+            sticker_no,
+            remaining_quantity
+          ) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          item_id,
+          quantity,
+          receiver,
+          incharge,
+          dispatch_date,
+          location_id,
+          block_id,
+          sticker_no,
+          newQty
+        ]
       );
 
       // Update or remove stock

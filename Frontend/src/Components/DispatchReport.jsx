@@ -565,6 +565,10 @@ const selectedLocationDisplay =
     item: visibleColumns.item !== undefined ? visibleColumns.item : true,
     category: visibleColumns.category !== undefined ? visibleColumns.category : true,
     quantity: visibleColumns.quantity !== undefined ? visibleColumns.quantity : true,
+    available_quantity:
+      visibleColumns.available_quantity !== undefined
+        ? visibleColumns.available_quantity
+        : true,
     block_name: visibleColumns.block_name !== undefined ? visibleColumns.block_name : true,
     sticker_no: visibleColumns.sticker_no !== undefined ? visibleColumns.sticker_no : true,
     receiver: visibleColumns.receiver !== undefined ? visibleColumns.receiver : true,
@@ -590,6 +594,7 @@ const selectedLocationDisplay =
     item: showItemColumn,
     category: showCategoryColumn, // Always show category column
     quantity: columns.quantity,
+    available_quantity: columns.available_quantity,
     block_name: columns.block_name,
     sticker_no: columns.sticker_no,
     receiver: columns.receiver,
@@ -908,7 +913,8 @@ const selectedLocationDisplay =
             {finalColumns.dispatchDate && <th>Dispatch Date</th>}
             {finalColumns.item && <th>Item Name</th>}
             {finalColumns.category && <th>Category</th>}
-            {finalColumns.quantity && <th>Quantity</th>}
+            {finalColumns.quantity && <th>Issued Quantity</th>}
+            {finalColumns.available_quantity && <th>Available Quantity</th>}
             {finalColumns.block_name && <th>Block Name</th>}
             {finalColumns.sticker_no && <th>Sticker No</th>}
             {finalColumns.receiver && <th>Receiver</th>}
@@ -928,6 +934,9 @@ const selectedLocationDisplay =
                   {finalColumns.item && <td>{row.item_name}</td>}
                   {finalColumns.category && <td>{row.category}</td>}
                   {finalColumns.quantity && <td>{row.quantity}</td>}
+                  {finalColumns.available_quantity && (
+                    <td>{row.available_quantity ?? 0}</td>
+                  )}
                   {finalColumns.block_name && <td>{row.block_name}</td>}
                   {finalColumns.sticker_no && <td>{row.sticker_no}</td>}
                   {finalColumns.receiver && <td>{row.receiver}</td>}
@@ -939,7 +948,7 @@ const selectedLocationDisplay =
 
               {/* Location Total */}
               <tr>
-                <td colSpan="9" style={{ textAlign: "right", fontWeight: "bold" }}>
+                <td colSpan="10" style={{ textAlign: "right", fontWeight: "bold" }}>
                   Total for {locationName}
                 </td>
                 <td colSpan="2" style={{ fontWeight: "bold" }}>
