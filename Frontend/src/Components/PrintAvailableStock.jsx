@@ -58,6 +58,16 @@ const ExportButton = styled.button`
   border-radius: 8px;
 `;
 
+const ComparativeButton = styled.button`
+  background-color: #3582ab;
+  border: none;
+  color: white;
+  padding: 12px 22px;
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 8px;
+`;
+
 const PrintAvailableStock = () => {
   const reportRef = useRef(null);
   const location = useLocation();
@@ -87,6 +97,10 @@ const PrintAvailableStock = () => {
     }
   };
 
+  const openComparativeReport = () => {
+    window.open('/comparative-available-stock', '_blank');
+  };
+
   // Small pageStyle to preserve colors and set margins
   const pageStyle = `
     @page { margin: 12mm; }
@@ -103,6 +117,7 @@ const PrintAvailableStock = () => {
           content={() => reportRef.current}
           pageStyle={pageStyle}
         />
+        <ComparativeButton onClick={openComparativeReport}>Comparative Report</ComparativeButton>
         <ExportButton onClick={handleExport}>Export to Excel</ExportButton>
       </ButtonContainer>
 

@@ -323,6 +323,26 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
   }, []);
 
   useEffect(() => {
+    if (!locations.length) {
+      sessionStorage.removeItem('comparativeSelectedLocationIds');
+      sessionStorage.removeItem('comparativeSelectedLocationNames');
+      return;
+    }
+
+    const selectedIds =
+      selectedInstitutions.length > 0
+        ? selectedInstitutions
+        : locations.map(loc => String(loc.location_id));
+
+    const selectedNames = locations
+      .filter(loc => selectedIds.includes(String(loc.location_id)))
+      .map(loc => loc.location_name);
+
+    sessionStorage.setItem('comparativeSelectedLocationIds', JSON.stringify(selectedIds));
+    sessionStorage.setItem('comparativeSelectedLocationNames', JSON.stringify(selectedNames));
+  }, [selectedInstitutions, locations]);
+
+  useEffect(() => {
     if (!institutionMenuOpen) return;
 
     const handleClickOutside = (event) => {
