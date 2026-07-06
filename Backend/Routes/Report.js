@@ -450,6 +450,151 @@ router.get('/itemMovement', async (req, res) => {
 });
 
 
+router.get('/comparativeAvailableStock', async (req, res) => {
+  try {
+    const rawLocationIds = req.query.location_ids || req.query.location_id;
+    const locationIds = Array.isArray(rawLocationIds)
+      ? rawLocationIds.map(String).filter(Boolean)
+      : String(rawLocationIds || '')
+          .split(',')
+          .map(id => id.trim())
+          .filter(Boolean);
+
+    if (!locationIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'location_ids is required.'
+      });
+    }
+
+    const placeholders = locationIds.map(() => '?').join(',');
+    const locationOrderPlaceholders = locationIds.map(() => '?').join(',');
+
+    const locationQuery = `
+      SELECT location_id, location_name
+      FROM locations
+      WHERE location_id IN (${placeholders})
+      ORDER BY FIELD(location_id, ${locationOrderPlaceholders})
+    `;
+
+    const [locations] = await db.query(locationQuery, [...locationIds, ...locationIds]);
+
+    if (!locations.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No matching locations found for selected location_ids.'
+      });
+    }
+
+    const sql = `
+      SELECT
+        s.item_id,
+        i.item_name,
+        i.category,
+        i.sub_category,
+        i.unit,
+        l.location_id,
+        l.location_name,
+        COALESCE(SUM(s.quantity), 0) AS quantity,
+        COALESCE(
+          (
+            SELECT p.amount
+            FROM purchases p
+            WHERE p.item_id = s.item_id
+            ORDER BY p.purchase_date DESC
+            LIMIT 1
+          ),
+          0
+        ) AS latest_price
+      FROM stock s
+      JOIN items i ON s.item_id = i.item_id
+      JOIN locations l ON s.location_id = l.location_id
+      WHERE s.location_id IN (${placeholders})
+      GROUP BY
+        s.item_id,
+        i.item_name,
+        i.category,
+        i.sub_category,
+        i.unit,
+        l.location_id,
+        l.location_name
+      ORDER BY i.category, i.item_name, l.location_name;
+    `;
+
+    const [rows] = await db.query(sql, locationIds);
+
+    const selectedLocationNames = locations.map(loc => loc.location_name);
+    const items = {};
+
+    rows.forEach((row) => {
+      const locationName = row.location_name;
+      const itemId = Number(row.item_id);
+      if (!items[itemId]) {
+        items[itemId] = {
+          item_id: itemId,
+          item_name: row.item_name,
+          category: row.category,
+          sub_category: row.sub_category,
+          unit: row.unit,
+          price: Number(row.latest_price) || 0,
+          totalQty: 0,
+          total: 0,
+        };
+
+        selectedLocationNames.forEach((locName) => {
+          items[itemId][locName] = 0;
+        });
+      }
+
+      items[itemId][locationName] = Number(row.quantity) || 0;
+    });
+
+    const transformed = Object.values(items).map((item) => {
+      const totalQty = selectedLocationNames.reduce(
+        (sum, locName) => sum + (Number(item[locName]) || 0),
+        0
+      );
+      return {
+        ...item,
+        totalQty,
+        total: Number((totalQty * item.price).toFixed(2))
+      };
+    });
+
+    const locationTotals = selectedLocationNames.reduce((acc, locName) => {
+      acc[locName] = 0;
+      return acc;
+    }, {});
+
+    transformed.forEach((item) => {
+      selectedLocationNames.forEach((locName) => {
+        locationTotals[locName] += Number(item[locName]) || 0;
+      });
+    });
+
+    const grandTotal = transformed.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+    res.json({
+      success: true,
+      data: transformed,
+      selectedLocations: locations.map(loc => ({
+        location_id: Number(loc.location_id),
+        location_name: loc.location_name
+      })),
+      summary: {
+        locationTotals,
+        grandTotal: Number(grandTotal.toFixed(2))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching comparative available stock report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch comparative available stock report'
+    });
+  }
+});
+
 
 // 🛒 Purchase Report
 router.get('/purchaseReport', async (req, res) => {
