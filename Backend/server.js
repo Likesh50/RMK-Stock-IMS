@@ -105,7 +105,7 @@
   });
 
 app.get('/health', (req, res) => {
-  res.status(200).js-on({ status: 'OK', message: 'Server is running!' });
+  res.status(200).json({ status: 'OK', message: 'Server is running!' });
 });
 
     app.listen(3002,()=>{
