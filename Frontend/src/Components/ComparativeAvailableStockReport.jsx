@@ -3,6 +3,8 @@ import ReactToPrint from 'react-to-print';
 import styled from 'styled-components';
 import Axios from 'axios';
 import Logo from '../assets/Logo.png';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -251,7 +253,37 @@ const ComparativeAvailableStockReport = () => {
     return num.toFixed(2);
   };
 
+  const exportToExcel = () => {
+    if (!reportRef.current) return;
+    const table = reportRef.current.querySelector('table');
+    if (!table) {
+      alert('No table found to export');
+      return;
+    }
+
+    try {
+      const ws = XLSX.utils.table_to_sheet(table);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Comparative Available Stock');
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'ComparativeAvailableStock.xlsx');
+    } catch (err) {
+      console.error('Export failed', err);
+      alert('Export failed. See console for details.');
+    }
+  };
+
   const printLabel = `Comparative Report Available Stock`;
+
+  const sortedRows = useMemo(() => {
+    return [...reportRows].sort((a, b) => {
+      const cat = (a.category || '').toString().localeCompare((b.category || '').toString());
+      if (cat !== 0) return cat;
+      const sub = (a.sub_category || '').toString().localeCompare((b.sub_category || '').toString());
+      if (sub !== 0) return sub;
+      return (a.item_name || '').toString().localeCompare((b.item_name || '').toString());
+    });
+  }, [reportRows]);
 
   return (
     <PageWrapper>
@@ -261,6 +293,7 @@ const ComparativeAvailableStockReport = () => {
           content={() => reportRef.current}
           pageStyle={`@page { margin: 12mm; } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }`}
         />
+        <ActionButton onClick={exportToExcel}>Export to Excel</ActionButton>
       </ButtonRow>
 
       <div ref={reportRef}>
@@ -309,14 +342,14 @@ const ComparativeAvailableStockReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {reportRows.length === 0 ? (
+                {sortedRows.length === 0 ? (
                   <tr>
                     <td colSpan={4 + selectedLocations.length + 2} style={{ textAlign: 'center', padding: '20px' }}>
                       No comparative stock data available for selected locations.
                     </td>
                   </tr>
                 ) : (
-                  reportRows.map((row, index) => (
+                  sortedRows.map((row, index) => (
                     <tr key={row.item_id || index}>
                       <td className="center">{index + 1}</td>
                       <td className="item">{row.item_name || '-'}</td>
@@ -336,7 +369,7 @@ const ComparativeAvailableStockReport = () => {
                   ))
                 )}
 
-                {reportRows.length > 0 && (
+                {sortedRows.length > 0 && (
                   <tr>
                     <td colSpan={4} style={{ textAlign: 'right', fontWeight: 700, background: '#f3f9ff' }}>
                       Total
