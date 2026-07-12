@@ -236,6 +236,9 @@ import {
 
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [submitData, setSubmitData] = useState(null); // temp store data before actual submission
+    const [showShopConfirmDialog, setShowShopConfirmDialog] = useState(false);
+    const [pendingShop, setPendingShop] = useState(null);
+    const [showSubmitDialog, setShowSubmitDialog] = useState(false);
 
     // useEffect(() => {
       //   const fetchItems = async () => {
@@ -286,7 +289,7 @@ import {
     }));
 
     setSubmitData({ date: formattedDate, rows: updatedRows, location: locationId });
-    confirmSubmit();
+    setShowSubmitDialog(true);
   };
 
 const confirmSubmit = async () => {
@@ -505,7 +508,14 @@ const confirmSubmit = async () => {
           options={shopAddresses}
           getOptionLabel={(option) => option?.label || ''}
           value={shop}
-          onChange={(_, newValue) => setShop(newValue)}
+          onChange={(_, newValue) => {
+            if (newValue) {
+              setPendingShop(newValue);
+              setShowShopConfirmDialog(true);
+            } else {
+              setShop(null);
+            }
+          }}
           renderInput={(params) => (
             <TextField {...params} label="Shop Name" variant="outlined" size="small" />
           )}
@@ -641,6 +651,72 @@ const confirmSubmit = async () => {
           }}
             color="primary" variant="contained">
             Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Shop selection confirmation dialog */}
+      <Dialog open={showShopConfirmDialog} onClose={() => setShowShopConfirmDialog(false)}>
+        <DialogTitle>Confirm Shop Selection</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {pendingShop ? (
+              <span> You have selected '<strong>{pendingShop.label}</strong>'. Do you wish to continue?</span>
+            ) : (
+              'No shop selected.'
+            )}
+          </DialogContentText>
+          <div style={{ marginTop: 12 }}>
+            <Autocomplete
+              options={shopAddresses}
+              getOptionLabel={(option) => option?.label || ''}
+              value={pendingShop}
+              onChange={(_, newValue) => setPendingShop(newValue)}
+              renderInput={(params) => (
+                <TextField {...params} label="Change Shop" variant="outlined" size="small" />
+              )}
+              sx={{ width: 360 }}
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            // No: keep dialog open so user can change selection inside dialog
+          }} color="secondary">
+            No
+          </Button>
+          <Button onClick={() => {
+            // Yes: accept pending shop
+            setShop(pendingShop);
+            setShowShopConfirmDialog(false);
+          }} color="primary" variant="contained">
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Submit confirmation dialog */}
+      <Dialog open={showSubmitDialog} onClose={() => setShowSubmitDialog(false)}>
+        <DialogTitle>Confirm Submit</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <span>You have selected '<strong>{shop?.label || ''}</strong>'. Do you wish to submit?</span>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            // Cancel submission
+            setShowSubmitDialog(false);
+            setSubmitData(null);
+          }} color="secondary">
+            No
+          </Button>
+          <Button onClick={async () => {
+            // Proceed with submission
+            setShowSubmitDialog(false);
+            await confirmSubmit();
+          }} color="primary" variant="contained">
+            Yes
           </Button>
         </DialogActions>
       </Dialog>
