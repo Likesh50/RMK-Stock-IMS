@@ -914,7 +914,7 @@ const selectedLocationDisplay =
             {finalColumns.item && <th>Item Name</th>}
             {finalColumns.category && <th>Category</th>}
             {finalColumns.quantity && <th>Issued Quantity</th>}
-            {finalColumns.available_quantity && <th>Available Quantity</th>}
+            {finalColumns.available_quantity && <th>Balance Quantity</th>}
             {finalColumns.block_name && <th>Block Name</th>}
             {finalColumns.sticker_no && <th>Sticker No</th>}
             {finalColumns.receiver && <th>Receiver</th>}
