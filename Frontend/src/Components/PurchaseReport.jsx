@@ -277,7 +277,7 @@ const ItemTable = styled.table`
 /* Meta section */
 const MetaInfo = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   row-gap: 15px;
   column-gap: 40px;
   margin: 20px 0 30px 0;
@@ -287,6 +287,7 @@ const MetaInfo = styled.div`
   div {
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   .meta-label {
@@ -301,6 +302,13 @@ const MetaInfo = styled.div`
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .meta-value.multi-select {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-overflow: clip;
   }
 
   @media print {
@@ -596,11 +604,11 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
         </div>
         <div>
           <span className="meta-label">Category</span>
-          <span className="meta-value" title={selectedCategoryDisplay}>{selectedCategoryDisplay}</span>
+          <span className="meta-value multi-select" title={selectedCategoryDisplay}>{selectedCategoryDisplay}</span>
         </div>
         <div>
           <span className="meta-label">Location</span>
-          <span className="meta-value" title={selectedLocationNameFromSession}>{selectedLocationNameFromSession}</span>
+          <span className="meta-value multi-select" title={selectedLocationNameFromSession}>{selectedLocationNameFromSession}</span>
         </div>
       </MetaInfo>
 

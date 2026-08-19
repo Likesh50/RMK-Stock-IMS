@@ -314,7 +314,7 @@ const institutionMap = {
 
 const MetaInfo = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   row-gap: 15px;
   column-gap: 40px;
   margin: 20px 0 30px 0;
@@ -324,6 +324,7 @@ const MetaInfo = styled.div`
   div {
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   .meta-label {
@@ -337,6 +338,13 @@ const MetaInfo = styled.div`
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .meta-value.multi-select {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-overflow: clip;
   }
 
   @media print {
@@ -658,7 +666,7 @@ const selectedLocationDisplay =
       <MetaInfo>
         <div>
           <span className="meta-label">Institution</span>
-          <span className="meta-value">{institutionName || '—'}</span>
+          <span className="meta-value multi-select">{institutionName || '—'}</span>
         </div>
         <div>
           <span className="meta-label">Report Date</span>
@@ -684,11 +692,11 @@ const selectedLocationDisplay =
         </div>
         <div>
           <span className="meta-label">Block</span>
-          <span className="meta-value" title={selectedBlockDisplay}>{selectedBlockDisplay}</span>
+          <span className="meta-value multi-select" title={selectedBlockDisplay}>{selectedBlockDisplay}</span>
         </div>
         <div>
           <span className="meta-label">Location</span>
-          <span className="meta-value" title={selectedLocationDisplay}>{selectedLocationDisplay}</span>
+          <span className="meta-value multi-select" title={selectedLocationDisplay}>{selectedLocationDisplay}</span>
         </div>
       </MetaInfo>
 
@@ -881,16 +889,15 @@ const selectedLocationDisplay =
 ).map((locationName, groupIndex) => {
 
   const rows = (groupedData[locationName] || []).sort((a, b) => {
-    const categoryA = (a.category || '').toString();
-    const categoryB = (b.category || '').toString();
-
-    if (categoryA !== categoryB) {
-      return categoryA.localeCompare(categoryB);
-    }
-
     const dateA = new Date(a.dispatch_date);
     const dateB = new Date(b.dispatch_date);
-    return dateA - dateB;
+    const dateDifference = dateA - dateB;
+
+    if (dateDifference !== 0) return dateDifference;
+
+    return (a.category || '').toString().localeCompare(
+      (b.category || '').toString()
+    );
   });
 
   const locationTotal = rows.reduce(
