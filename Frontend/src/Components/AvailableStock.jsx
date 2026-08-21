@@ -228,7 +228,7 @@ const TableHeader = styled.table`
 /* Meta section */
 const MetaInfo = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   row-gap: 15px;
   column-gap: 40px;
   margin: 20px 0 30px 0;
@@ -238,6 +238,7 @@ const MetaInfo = styled.div`
   div {
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   .meta-label {
@@ -252,6 +253,13 @@ const MetaInfo = styled.div`
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .meta-value.multi-select {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-overflow: clip;
   }
 
   @media print {
@@ -532,7 +540,7 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
       <MetaInfo>
         <div>
           <span className="meta-label">Institution</span>
-          <span className="meta-value" title={selectedInstitutionDisplay}>{selectedInstitutionDisplay}</span>
+          <span className="meta-value multi-select" title={selectedInstitutionDisplay}>{selectedInstitutionDisplay}</span>
         </div>
         <div>
           <span className="meta-label">Report Date</span>
@@ -540,7 +548,7 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
         </div>
         <div>
           <span className="meta-label">Category</span>
-          <span className="meta-value" title={selectedCategoryDisplay}>{selectedCategoryDisplay}</span>
+          <span className="meta-value multi-select" title={selectedCategoryDisplay}>{selectedCategoryDisplay}</span>
         </div>
       </MetaInfo>
 

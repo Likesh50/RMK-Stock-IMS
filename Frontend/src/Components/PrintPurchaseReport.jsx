@@ -104,12 +104,15 @@ const PrintPurchaseReport = () => {
 
   // columns state (default all true)
   const [visibleColumns, setVisibleColumns] = useState({
+    sno: true,
     date: true,
     shop: true,
     item: true,
     category: true,
     qty: true,
     price: true,
+    amount: true,
+    gstOthers: true,
     total: true
   });
 
@@ -119,13 +122,25 @@ const PrintPurchaseReport = () => {
 
   const handleExport = () => {
     if (!reportRef.current) return;
-    // Convert the rendered table to sheet
-    const table = reportRef.current.querySelector('table');
-    if (!table) {
+    const tables = Array.from(reportRef.current.querySelectorAll('table'));
+    if (tables.length === 0) {
       alert('Nothing to export');
       return;
     }
-    const ws = XLSX.utils.table_to_sheet(table);
+
+    const ws = XLSX.utils.aoa_to_sheet([]);
+    let nextRow = 0;
+
+    tables.forEach((table) => {
+      const locationHeading = table.parentElement?.querySelector('h3')?.textContent?.trim();
+      if (locationHeading) {
+        XLSX.utils.sheet_add_aoa(ws, [[locationHeading]], { origin: { r: nextRow, c: 0 } });
+        nextRow += 2;
+      }
+
+      XLSX.utils.sheet_add_dom(ws, table, { origin: { r: nextRow, c: 0 } });
+      nextRow = XLSX.utils.decode_range(ws['!ref']).e.r + 2;
+    });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Purchase Report');
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -136,6 +151,10 @@ const PrintPurchaseReport = () => {
     <Test>
       <ButtonContainer>
         <ColumnSelector>
+          <label>
+            <input type="checkbox" checked={visibleColumns.sno} onChange={() => toggleColumn('sno')} />
+            Sl. No
+          </label>
           <label>
             <input type="checkbox" checked={visibleColumns.date} onChange={() => toggleColumn('date')} />
             Date
@@ -158,7 +177,15 @@ const PrintPurchaseReport = () => {
           </label>
           <label>
             <input type="checkbox" checked={visibleColumns.price} onChange={() => toggleColumn('price')} />
-            Price
+            Rate
+          </label>
+          <label>
+            <input type="checkbox" checked={visibleColumns.amount} onChange={() => toggleColumn('amount')} />
+            Amount
+          </label>
+          <label>
+            <input type="checkbox" checked={visibleColumns.gstOthers} onChange={() => toggleColumn('gstOthers')} />
+            GST &amp; Others
           </label>
           <label>
             <input type="checkbox" checked={visibleColumns.total} onChange={() => toggleColumn('total')} />

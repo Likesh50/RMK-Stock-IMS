@@ -134,12 +134,25 @@ const PrintDispatchReport = () => {
 
   const handleExport = () => {
     if (!reportRef.current) return;
-    const table = reportRef.current.querySelector('table');
-    if (!table) {
+    const tables = Array.from(reportRef.current.querySelectorAll('table'));
+    if (tables.length === 0) {
       alert('Nothing to export');
       return;
     }
-    const ws = XLSX.utils.table_to_sheet(table);
+
+    const ws = XLSX.utils.aoa_to_sheet([]);
+    let nextRow = 0;
+
+    tables.forEach((table) => {
+      const locationHeading = table.parentElement?.querySelector('h3')?.textContent?.trim();
+      if (locationHeading) {
+        XLSX.utils.sheet_add_aoa(ws, [[locationHeading]], { origin: { r: nextRow, c: 0 } });
+        nextRow += 2;
+      }
+
+      XLSX.utils.sheet_add_dom(ws, table, { origin: { r: nextRow, c: 0 } });
+      nextRow = XLSX.utils.decode_range(ws['!ref']).e.r + 2;
+    });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Dispatch Report');
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });

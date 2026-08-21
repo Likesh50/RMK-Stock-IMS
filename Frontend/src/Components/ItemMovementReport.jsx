@@ -596,7 +596,6 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                 <th>Dispatched Qty</th>
                 <th>Transferred In</th>
                 <th>Transferred Out</th>
-                <th>Available Qty</th>
                 <th>Total Purchase Amount</th>
                 <th>Total Dispatch Amount</th>
                 <th >Total Amount in Stock (Purchase - Dispatch)</th>
@@ -608,7 +607,6 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                 <td>{fNum(summary.dispatchQty)}</td>
                 <td>{fNum(summary.transferInQty)}</td>
                 <td>{fNum(summary.transferOutQty)}</td>
-                <td>{fNum(summary.availableQty)}</td>
                 <td className="money">{fMoney(summary.totalPurchaseAmount)}</td>
                 <td className="money">{fMoney(summary.totalDispatchAmount)}</td>
                 <td className="money">{fMoney(totalAmountInStock)}</td>

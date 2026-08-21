@@ -242,6 +242,8 @@ const ItemTable = styled.table`
   th.date, td.date { width: 120px; min-width: 100px; }
   th.qty, td.qty { width: 80px; min-width: 60px; }
   th.price, td.price { width: 100px; min-width: 80px; }
+  th.amount, td.amount { width: 110px; min-width: 90px; }
+  th.gst-others, td.gst-others { width: 130px; min-width: 110px; }
   th.total, td.total { width: 120px; min-width: 100px; }
   th.shop, td.shop { width: 220px; min-width: 120px; } /* keep shop narrower */
 
@@ -277,7 +279,7 @@ const ItemTable = styled.table`
 /* Meta section */
 const MetaInfo = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   row-gap: 15px;
   column-gap: 40px;
   margin: 20px 0 30px 0;
@@ -287,6 +289,7 @@ const MetaInfo = styled.div`
   div {
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   .meta-label {
@@ -301,6 +304,13 @@ const MetaInfo = styled.div`
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .meta-value.multi-select {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-overflow: clip;
   }
 
   @media print {
@@ -446,8 +456,10 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
             ...r,
             location_name: loc.location_name,
             quantity: Number(r.quantity) || 0,
-            price: Number(r.price || r.amount) || 0,
-            total: Number(r.total) || (Number(r.quantity || 0) * Number(r.price || r.amount || 0))
+            rate: Number(r.rate ?? r.price) || 0,
+            amount: Number(r.amount) || (Number(r.quantity || 0) * Number((r.rate ?? r.price) || 0)),
+            gst_others: Number(r.gst_others) || 0,
+            total: Number(r.total) || ((Number(r.amount) || 0) + (Number(r.gst_others) || 0))
           }));
 
           combined = [...combined, ...normalized];
@@ -515,7 +527,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
   });
 
   // Compute grand total if backend didn't provide it
-  const computedGrandTotal = sortedFilteredData.reduce((sum, row) => sum + (Number(row.total) || (Number(row.quantity || 0) * Number(row.price || 0))), 0);
+  const computedGrandTotal = sortedFilteredData.reduce((sum, row) => sum + (Number(row.total) || ((Number(row.amount) || 0) + (Number(row.gst_others) || 0))), 0);
   const grandTotalToShow = (backendGrandTotal !== null) ? backendGrandTotal : computedGrandTotal;
 
   const groupedData = filteredData.reduce((acc, row) => {
@@ -531,13 +543,15 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
 
   // Determine which columns to show based on visibleColumns prop (default to true)
   const columns = {
-    sno: true, // always show serial no
+    sno: visibleColumns.sno !== undefined ? visibleColumns.sno : true,
     date: visibleColumns.date !== undefined ? visibleColumns.date : true,
     shop: visibleColumns.shop !== undefined ? visibleColumns.shop : true,
     item: visibleColumns.item !== undefined ? visibleColumns.item : true,
     category: visibleColumns.category !== undefined ? visibleColumns.category : true,
     qty: visibleColumns.qty !== undefined ? visibleColumns.qty : true,
     price: visibleColumns.price !== undefined ? visibleColumns.price : true,
+    amount: visibleColumns.amount !== undefined ? visibleColumns.amount : true,
+    gstOthers: visibleColumns.gstOthers !== undefined ? visibleColumns.gstOthers : true,
     total: visibleColumns.total !== undefined ? visibleColumns.total : true
   };
 
@@ -596,11 +610,11 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
         </div>
         <div>
           <span className="meta-label">Category</span>
-          <span className="meta-value" title={selectedCategoryDisplay}>{selectedCategoryDisplay}</span>
+          <span className="meta-value multi-select" title={selectedCategoryDisplay}>{selectedCategoryDisplay}</span>
         </div>
         <div>
           <span className="meta-label">Location</span>
-          <span className="meta-value" title={selectedLocationNameFromSession}>{selectedLocationNameFromSession}</span>
+          <span className="meta-value multi-select" title={selectedLocationNameFromSession}>{selectedLocationNameFromSession}</span>
         </div>
       </MetaInfo>
 
@@ -759,7 +773,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
         });
 
         const locationTotal = rows.reduce(
-          (sum, row) => sum + (Number(row.total) || (Number(row.quantity || 0) * Number(row.price || 0))),
+          (sum, row) => sum + (Number(row.total) || ((Number(row.amount) || 0) + (Number(row.gst_others) || 0))),
           0
         );
 
@@ -778,7 +792,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
                   {columns.item && <th className="item left">ITEM NAME</th>}
                   {columns.category && <th className="category left">CATEGORY</th>}
                   {columns.qty && <th className="qty right">QTY</th>}
-                  {columns.price && <th className="price right">PRICE</th>}
+                  {columns.price && <th className="price right">RATE</th>}
+                  {columns.amount && <th className="amount right">AMOUNT</th>}
+                  {columns.gstOthers && <th className="gst-others right">GST &amp; OTHERS</th>}
                   {columns.total && <th className="total right">TOTAL</th>}
                 </tr>
               </thead>
@@ -794,7 +810,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
                         {columns.item && <td className="left">{row.item_name || '—'}</td>}
                         {columns.category && <td className="left">{row.category || '—'}</td>}
                         {columns.qty && <td className="right">{Number(row.quantity) || 0}</td>}
-                        {columns.price && <td className="right">{formatNumber(row.price)}</td>}
+                        {columns.price && <td className="right">{formatNumber(row.rate)}</td>}
+                        {columns.amount && <td className="right">{formatNumber(row.amount)}</td>}
+                        {columns.gstOthers && <td className="right">{formatNumber(row.gst_others)}</td>}
                         {columns.total && <td className="right">{formatNumber(row.total)}</td>}
                       </tr>
                     ))}
@@ -835,7 +853,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
             {columns.item && <th className="item left">ITEM NAME</th>}
             {columns.category && <th className="category left">CATEGORY</th>}
             {columns.qty && <th className="qty right">QTY</th>}
-            {columns.price && <th className="price right">PRICE</th>}
+            {columns.price && <th className="price right">RATE</th>}
+            {columns.amount && <th className="amount right">AMOUNT</th>}
+            {columns.gstOthers && <th className="gst-others right">GST &amp; OTHERS</th>}
             {columns.total && <th className="total right">TOTAL</th>}
           </tr>
         </thead>
@@ -850,7 +870,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
                 {columns.item && <td className="left">{row.item_name || '—'}</td>}
                 {columns.category && <td className="left">{row.category || '—'}</td>}
                 {columns.qty && <td className="right">{Number(row.quantity) || 0}</td>}
-                {columns.price && <td className="right">{formatNumber(row.price)}</td>}
+                {columns.price && <td className="right">{formatNumber(row.rate)}</td>}
+                {columns.amount && <td className="right">{formatNumber(row.amount)}</td>}
+                {columns.gstOthers && <td className="right">{formatNumber(row.gst_others)}</td>}
                 {columns.total && <td className="right">{formatNumber(row.total)}</td>}
               </tr>
             ))
