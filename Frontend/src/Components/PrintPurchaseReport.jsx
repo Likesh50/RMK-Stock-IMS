@@ -104,12 +104,15 @@ const PrintPurchaseReport = () => {
 
   // columns state (default all true)
   const [visibleColumns, setVisibleColumns] = useState({
+    sno: true,
     date: true,
     shop: true,
     item: true,
     category: true,
     qty: true,
     price: true,
+    amount: true,
+    gstOthers: true,
     total: true
   });
 
@@ -149,6 +152,10 @@ const PrintPurchaseReport = () => {
       <ButtonContainer>
         <ColumnSelector>
           <label>
+            <input type="checkbox" checked={visibleColumns.sno} onChange={() => toggleColumn('sno')} />
+            Sl. No
+          </label>
+          <label>
             <input type="checkbox" checked={visibleColumns.date} onChange={() => toggleColumn('date')} />
             Date
           </label>
@@ -170,7 +177,15 @@ const PrintPurchaseReport = () => {
           </label>
           <label>
             <input type="checkbox" checked={visibleColumns.price} onChange={() => toggleColumn('price')} />
-            Price
+            Rate
+          </label>
+          <label>
+            <input type="checkbox" checked={visibleColumns.amount} onChange={() => toggleColumn('amount')} />
+            Amount
+          </label>
+          <label>
+            <input type="checkbox" checked={visibleColumns.gstOthers} onChange={() => toggleColumn('gstOthers')} />
+            GST &amp; Others
           </label>
           <label>
             <input type="checkbox" checked={visibleColumns.total} onChange={() => toggleColumn('total')} />

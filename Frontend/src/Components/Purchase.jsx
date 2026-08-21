@@ -196,6 +196,84 @@ import {
       cursor: not-allowed;
     }
   `;
+
+  const ChargeSummary = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 20px;
+    overflow: hidden;
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .charge-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(160px, 200px);
+      gap: 20px;
+      align-items: center;
+    }
+
+    .other-charge-row {
+      grid-template-columns: minmax(0, 1fr) minmax(160px, 200px) auto;
+    }
+
+    .summary-label, .charge-row label {
+      color: #164863;
+      font-weight: 600;
+    }
+
+    .summary-value {
+      text-align: right;
+      font-weight: 600;
+    }
+
+    .grand-total-row {
+      border-top: 1px solid #ddd;
+      padding-top: 16px;
+    }
+
+    .grand-total {
+      color: #164863;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .grand-total-value {
+      text-align: right;
+      color: #164863;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .grand-total-input {
+      color: #164863;
+      font-size: 18px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .add-charge-button {
+      align-self: flex-start;
+    }
+
+    @media (max-width: 520px) {
+      .charge-row, .other-charge-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .summary-value, .grand-total-value {
+        text-align: left;
+      }
+    }
+  `;
   const Purchase = () => {
     const [rows, setRows] = useState([
       {
@@ -205,6 +283,7 @@ import {
         item_name: '',
         itemOptions: [],
         quantity: '',
+        rate: '',
         amount: '',
         invoice: '',
         shop: null
@@ -239,6 +318,28 @@ import {
     const [showShopConfirmDialog, setShowShopConfirmDialog] = useState(false);
     const [pendingShop, setPendingShop] = useState(null);
     const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+    const [showChargesDialog, setShowChargesDialog] = useState(false);
+    const [charges, setCharges] = useState({
+      sgst: '',
+      cgst: '',
+      freight: '',
+      otherCharges: [],
+      grandTotal: ''
+    });
+    const [isGrandTotalEditing, setIsGrandTotalEditing] = useState(false);
+
+    const lineSubtotal = rows.reduce((total, row) => total + (Number(row.amount) || 0), 0);
+    const chargesTotal =
+      (Number(charges.sgst) || 0) +
+      (Number(charges.cgst) || 0) +
+      (Number(charges.freight) || 0) +
+      charges.otherCharges.reduce((total, charge) => total + (Number(charge.amount) || 0), 0);
+    const calculatedGrandTotal = lineSubtotal + chargesTotal;
+    const grandTotal = charges.grandTotal === ''
+      ? calculatedGrandTotal
+      : Number(charges.grandTotal) || 0;
+
+    const startGrandTotalEditing = () => setIsGrandTotalEditing(true);
 
     // useEffect(() => {
       //   const fetchItems = async () => {
@@ -269,7 +370,7 @@ import {
     }
 
     const invalidRows = rows.filter(row =>
-      !row.item_id || !row.quantity || !row.amount
+      !row.item_id || !row.quantity || row.rate === '' || !row.amount
     );
 
     if (invalidRows.length > 0) {
@@ -283,6 +384,7 @@ import {
     const updatedRows = rows.map(row => ({
       item_id: row.item_id,
       quantity: row.quantity,
+      rate: row.rate,
       amount: row.amount,
       invoice: invoice,
       shop_id: shop.value
@@ -300,7 +402,8 @@ const confirmSubmit = async () => {
     const response = await axios.post(`${import.meta.env.VITE_RMK_MESS_URL}/purchase/add`, {
       date: submitData.date,
       arr: submitData.rows,
-      location: submitData.location
+      location: submitData.location,
+      charges
     });
 
     toast.success("Items added successfully");
@@ -314,6 +417,7 @@ const confirmSubmit = async () => {
         item_name: '',
         itemOptions: [],
         quantity: '',
+        rate: '',
         amount: '',
         invoice: '',
         shop: null
@@ -322,7 +426,10 @@ const confirmSubmit = async () => {
     setDate(null);
     numRecordsRef.current.value = '';
     setSubmitData(null);
+    setCharges({ sgst: '', cgst: '', freight: '', otherCharges: [], grandTotal: '' });
+    setIsGrandTotalEditing(false);
     setShowConfirmDialog(false);
+    setShowChargesDialog(false);
 
   } catch (error) {
     console.error("Error submitting data:", error);
@@ -405,6 +512,7 @@ const confirmSubmit = async () => {
             item_name: '',
             itemOptions: [],
             quantity: '',
+            rate: '',
             amount: '',
             invoice: '',
             shop: null
@@ -417,9 +525,14 @@ const confirmSubmit = async () => {
 
     const handleInputChange = (rowId, field, value) => {
   setRows(prevRows =>
-    prevRows.map(row =>
-      row.id === rowId ? { ...row, [field]: value } : row
-    )
+    prevRows.map(row => {
+      if (row.id !== rowId) return row;
+      const updatedRow = { ...row, [field]: value };
+      if (field === 'quantity' || field === 'rate') {
+        updatedRow.amount = String((Number(updatedRow.quantity) || 0) * (Number(updatedRow.rate) || 0));
+      }
+      return updatedRow;
+    })
   );
 
   if (field === 'category') {
@@ -439,6 +552,7 @@ const confirmSubmit = async () => {
           item_name: '',
           itemOptions: [],
           quantity: '',
+          rate: '',
           amount: '',
           invoice: '',
           shop: null
@@ -458,9 +572,6 @@ const confirmSubmit = async () => {
     
       return `${year}-${month}-${day}`;
     }
-
-
-
 
       return (
     <Container>
@@ -543,6 +654,7 @@ const confirmSubmit = async () => {
             {/* <th>Manufacture</th>
             <th>Use Before</th> */}
             <th>Rate</th>
+            <th>Amount</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -612,9 +724,23 @@ const confirmSubmit = async () => {
               <td>
                 <input
                   type="number"
+                  min="0"
+                  step="0.01"
+                  value={row.rate}
+                  onChange={(e) => handleInputChange(row.id, 'rate', e.target.value)}
+                  required
+                />
+              </td>
+
+              <td>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
                   value={row.amount}
                   onChange={(e) => handleInputChange(row.id, 'amount', e.target.value)}
                   required
+                  aria-label="Amount"
                 />
               </td>
 
@@ -712,11 +838,157 @@ const confirmSubmit = async () => {
             No
           </Button>
           <Button onClick={async () => {
-            // Proceed with submission
             setShowSubmitDialog(false);
-            await confirmSubmit();
+            setShowChargesDialog(true);
           }} color="primary" variant="contained">
             Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Invoice-level charges dialog, shown only after the submit confirmation. */}
+      <Dialog
+        open={showChargesDialog}
+        onClose={() => !loading && setShowChargesDialog(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Purchase Total</DialogTitle>
+        <DialogContent sx={{ overflowX: 'hidden' }}>
+          <DialogContentText>
+            Add any invoice-level charges before saving this purchase.
+          </DialogContentText>
+          <ChargeSummary>
+            <div className="charge-row">
+              <span className="summary-label">Total Amount</span>
+              <span className="summary-value">{lineSubtotal.toFixed(2)}</span>
+            </div>
+
+            <div className="charge-row">
+              <label htmlFor="sgst">SGST</label>
+              <input
+                id="sgst"
+                type="number"
+                min="0"
+                step="0.01"
+                value={charges.sgst}
+                onChange={(e) => setCharges(current => ({ ...current, sgst: e.target.value }))}
+              />
+            </div>
+
+            <div className="charge-row">
+              <label htmlFor="cgst">CGST</label>
+              <input
+                id="cgst"
+                type="number"
+                min="0"
+                step="0.01"
+                value={charges.cgst}
+                onChange={(e) => setCharges(current => ({ ...current, cgst: e.target.value }))}
+              />
+            </div>
+
+            <div className="charge-row">
+              <label htmlFor="freight">Freight</label>
+              <input
+                id="freight"
+                type="number"
+                min="0"
+                step="0.01"
+                value={charges.freight}
+                onChange={(e) => setCharges(current => ({ ...current, freight: e.target.value }))}
+              />
+            </div>
+
+            {charges.otherCharges.map((charge, index) => (
+              <div className="charge-row other-charge-row" key={charge.id}>
+                <input
+                  aria-label="Other charge description"
+                  placeholder="Other charge"
+                  value={charge.label}
+                  onChange={(e) => setCharges(current => ({
+                    ...current,
+                    otherCharges: current.otherCharges.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, label: e.target.value } : item
+                    )
+                  }))}
+                />
+                <input
+                  aria-label="Other charge amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={charge.amount}
+                  onChange={(e) => setCharges(current => ({
+                    ...current,
+                    otherCharges: current.otherCharges.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, amount: e.target.value } : item
+                    )
+                  }))}
+                />
+                <Button
+                  color="error"
+                  size="small"
+                  onClick={() => setCharges(current => ({
+                    ...current,
+                    otherCharges: current.otherCharges.filter((_, itemIndex) => itemIndex !== index)
+                  }))}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+
+            <Button
+              className="add-charge-button"
+              size="small"
+              onClick={() => setCharges(current => ({
+                ...current,
+                otherCharges: [...current.otherCharges, { id: Date.now(), label: '', amount: '' }]
+              }))}
+            >
+              + Add other charge
+            </Button>
+
+            <div className="charge-row grand-total-row">
+              <span className="grand-total">Grand Total</span>
+              {isGrandTotalEditing ? (
+                <input
+                  className="grand-total-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={charges.grandTotal === '' ? grandTotal.toFixed(2) : charges.grandTotal}
+                  onChange={(e) => setCharges(current => ({ ...current, grandTotal: e.target.value }))}
+                  onFocus={(e) => e.target.select()}
+                  onBlur={() => setIsGrandTotalEditing(false)}
+                  autoFocus
+                  aria-label="Grand total"
+                />
+              ) : (
+                <span
+                  className="grand-total-value"
+                  tabIndex={0}
+                  onDoubleClick={startGrandTotalEditing}
+                  onFocus={startGrandTotalEditing}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') startGrandTotalEditing();
+                  }}
+                  role="button"
+                  aria-label="Edit grand total"
+                >
+                  {grandTotal.toFixed(2)}
+                </span>
+              )}
+            </div>
+          </ChargeSummary>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowChargesDialog(false)} color="secondary" disabled={loading}>
+            Back
+          </Button>
+          <Button onClick={confirmSubmit} color="primary" variant="contained" disabled={loading}>
+            Save
           </Button>
         </DialogActions>
       </Dialog>
