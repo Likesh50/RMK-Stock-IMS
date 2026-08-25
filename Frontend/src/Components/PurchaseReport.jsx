@@ -458,11 +458,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
             location_name: loc.location_name,
             quantity: Number(r.quantity) || 0,
             rate: Number(r.rate ?? r.price) || 0,
-            amount: r.amount != null
-              ? Number(r.amount)
-              : (Number(r.quantity || 0) * Number((r.rate ?? r.price) || 0)),
+            amount: (Number(r.quantity) || 0) * (Number(r.rate ?? r.price) || 0),
             gst_others: Number(r.gst_others) || 0,
-            total: Number(r.total) || ((Number(r.amount) || 0) + (Number(r.gst_others) || 0))
+            total: ((Number(r.quantity) || 0) * (Number(r.rate ?? r.price) || 0)) + (Number(r.gst_others) || 0)
           }));
 
           combined = [...combined, ...normalized];
