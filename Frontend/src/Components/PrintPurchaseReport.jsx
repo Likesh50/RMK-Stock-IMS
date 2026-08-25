@@ -107,6 +107,7 @@ const PrintPurchaseReport = () => {
     sno: true,
     date: true,
     shop: true,
+    invoice: true,
     item: true,
     category: true,
     qty: true,
@@ -162,6 +163,10 @@ const PrintPurchaseReport = () => {
           <label>
             <input type="checkbox" checked={visibleColumns.shop} onChange={() => toggleColumn('shop')} />
             Shop
+          </label>
+          <label>
+            <input type="checkbox" checked={visibleColumns.invoice} onChange={() => toggleColumn('invoice')} />
+            Invoice/Bill No
           </label>
           <label>
             <input type="checkbox" checked={visibleColumns.item} onChange={() => toggleColumn('item')} />
