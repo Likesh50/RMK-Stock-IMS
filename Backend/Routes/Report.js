@@ -249,7 +249,7 @@ router.get('/itemMovement', async (req, res) => {
         'purchase' AS source_type,
         p.quantity,
         p.amount AS price,
-        (p.quantity * p.amount) AS total,
+        COALESCE(NULLIF(p.line_amount, 0), p.quantity * p.amount) AS total,
         s.name AS source_name,
         p.location_id,
         NULL AS other_location_id
@@ -614,10 +614,14 @@ router.get('/purchaseReport', async (req, res) => {
         i.item_name,
         i.category,
         i.sub_category,
+        p.purchase_id,
+        p.purchase_header_id,
         p.quantity,
-        p.invoice_no,
-        p.amount AS price,
-        (p.quantity * p.amount) AS total,
+        p.invoice_no AS invoice_no,
+        p.amount AS rate,
+        (p.quantity * p.amount) AS amount,
+        ph.subtotal AS invoice_subtotal,
+        ph.grand_total AS invoice_grand_total,
         s.name AS shop_name,
         p.purchase_date,
         p.location_id,
@@ -628,6 +632,7 @@ router.get('/purchaseReport', async (req, res) => {
       FROM purchases p
       JOIN items i ON p.item_id = i.item_id
       JOIN shops s ON p.shop_id = s.id
+      LEFT JOIN purchase_headers ph ON p.purchase_header_id = ph.purchase_header_id
       WHERE p.purchase_date BETWEEN ? AND ?
         AND p.location_id = ?
     `;
@@ -639,10 +644,14 @@ router.get('/purchaseReport', async (req, res) => {
         i.item_name,
         i.category,
         i.sub_category,
+        NULL AS purchase_id,
+        NULL AS purchase_header_id,
         t.quantity,
         NULL AS invoice_no,
-        NULL AS price,
-        0 AS total,
+        0 AS rate,
+        0 AS amount,
+        NULL AS invoice_subtotal,
+        NULL AS invoice_grand_total,
         CONCAT("TRANSFER from ",loc.location_name) AS shop_name,
         t.date AS purchase_date,
         t.to_location_id AS location_id,
@@ -681,13 +690,12 @@ router.get('/purchaseReport', async (req, res) => {
 
     const [rows] = await db.query(query, params);
 
-    // Normalize values
+    // Normalize line values first. Invoice-level charges are allocated below so they
+    // appear once across an invoice rather than being duplicated on every item.
     const normalizedRows = rows.map(r => {
-      // ensure numeric conversion and preserve some transfer-specific fields
       const quantity = Number(r.quantity) || 0;
-      const price = r.price != null ? Number(r.price) || 0 : 0;
-      // For purchases total should already be present; for transfers we set 0 above
-      const total = (r.total != null) ? Number(r.total) || (quantity * price) : (quantity * price);
+      const rate = r.rate != null ? Number(r.rate) || 0 : 0;
+      const amount = quantity * rate;
 
       return {
         item_name: r.item_name,
@@ -695,8 +703,14 @@ router.get('/purchaseReport', async (req, res) => {
         sub_category: r.sub_category,
         quantity,
         invoice_no: r.invoice_no || null,
-        price,
-        total: Number(total.toFixed(2)),
+        rate: Number(rate.toFixed(2)),
+        amount: Number(amount.toFixed(2)),
+        gst_others: 0,
+        total: Number(amount.toFixed(2)),
+        purchase_id: r.purchase_id || null,
+        purchase_header_id: r.purchase_header_id || null,
+        invoice_subtotal: r.invoice_subtotal != null ? Number(r.invoice_subtotal) || 0 : 0,
+        invoice_grand_total: r.invoice_grand_total != null ? Number(r.invoice_grand_total) || 0 : 0,
         shop_name: r.shop_name || null, // for transfers this is now the location_name from locations
         purchase_date: r.purchase_date,   // client can format
         location_id: r.location_id,
@@ -706,6 +720,30 @@ router.get('/purchaseReport', async (req, res) => {
         done_by_user_id: r.done_by_user_id || null,
         source_type: r.source_type // 'purchase' or 'transfer'
       };
+    });
+
+    const rowsByHeader = normalizedRows.reduce((groups, row) => {
+      if (row.source_type === 'purchase' && row.purchase_header_id) {
+        (groups[row.purchase_header_id] ||= []).push(row);
+      }
+      return groups;
+    }, {});
+
+    Object.values(rowsByHeader).forEach(invoiceRows => {
+      const invoiceSubtotal = invoiceRows[0].invoice_subtotal;
+      const invoiceCharges = invoiceRows[0].invoice_grand_total - invoiceSubtotal;
+      if (invoiceSubtotal <= 0 || invoiceCharges === 0) return;
+
+      let allocatedCharges = 0;
+      invoiceRows.forEach((row, index) => {
+        const isLastRow = index === invoiceRows.length - 1;
+        const gstOthers = isLastRow
+          ? Number((invoiceCharges - allocatedCharges).toFixed(2))
+          : Number(((invoiceCharges * row.amount) / invoiceSubtotal).toFixed(2));
+        allocatedCharges += gstOthers;
+        row.gst_others = gstOthers;
+        row.total = Number((row.amount + gstOthers).toFixed(2));
+      });
     });
 
     // Grand total — sums totals (transfers contribute 0 unless price exists)
