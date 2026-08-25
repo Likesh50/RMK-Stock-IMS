@@ -246,6 +246,7 @@ const ItemTable = styled.table`
   th.gst-others, td.gst-others { width: 130px; min-width: 110px; }
   th.total, td.total { width: 120px; min-width: 100px; }
   th.shop, td.shop { width: 220px; min-width: 120px; } /* keep shop narrower */
+  th.invoice, td.invoice { width: 130px; min-width: 110px; }
 
   /* ITEM column gets flexible space and wraps when needed */
   th.item, td.item {
@@ -457,7 +458,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
             location_name: loc.location_name,
             quantity: Number(r.quantity) || 0,
             rate: Number(r.rate ?? r.price) || 0,
-            amount: Number(r.amount) || (Number(r.quantity || 0) * Number((r.rate ?? r.price) || 0)),
+            amount: r.amount != null
+              ? Number(r.amount)
+              : (Number(r.quantity || 0) * Number((r.rate ?? r.price) || 0)),
             gst_others: Number(r.gst_others) || 0,
             total: Number(r.total) || ((Number(r.amount) || 0) + (Number(r.gst_others) || 0))
           }));
@@ -546,6 +549,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
     sno: visibleColumns.sno !== undefined ? visibleColumns.sno : true,
     date: visibleColumns.date !== undefined ? visibleColumns.date : true,
     shop: visibleColumns.shop !== undefined ? visibleColumns.shop : true,
+    invoice: visibleColumns.invoice !== undefined ? visibleColumns.invoice : true,
     item: visibleColumns.item !== undefined ? visibleColumns.item : true,
     category: visibleColumns.category !== undefined ? visibleColumns.category : true,
     qty: visibleColumns.qty !== undefined ? visibleColumns.qty : true,
@@ -789,6 +793,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
                   {columns.sno && <th className="sno center">SL.NO</th>}
                   {columns.date && <th className="date center">DATE</th>}
                   {columns.shop && <th className="shop left">SHOP NAME</th>}
+                  {columns.invoice && <th className="invoice left">INVOICE/BILL NO</th>}
                   {columns.item && <th className="item left">ITEM NAME</th>}
                   {columns.category && <th className="category left">CATEGORY</th>}
                   {columns.qty && <th className="qty right">QTY</th>}
@@ -807,6 +812,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
                         {columns.sno && <td className="center">{index + 1}</td>}
                         {columns.date && <td className="center">{formatDate(row.purchase_date)}</td>}
                         {columns.shop && <td className="left">{row.shop_name || '—'}</td>}
+                        {columns.invoice && <td className="left">{row.invoice_no || '—'}</td>}
                         {columns.item && <td className="left">{row.item_name || '—'}</td>}
                         {columns.category && <td className="left">{row.category || '—'}</td>}
                         {columns.qty && <td className="right">{Number(row.quantity) || 0}</td>}

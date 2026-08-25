@@ -370,7 +370,7 @@ import {
     }
 
     const invalidRows = rows.filter(row =>
-      !row.item_id || !row.quantity || row.rate === '' || !row.amount
+      !row.item_id || !row.quantity || row.rate === ''
     );
 
     if (invalidRows.length > 0) {
@@ -385,7 +385,7 @@ import {
       item_id: row.item_id,
       quantity: row.quantity,
       rate: row.rate,
-      amount: row.amount,
+      amount: Number(row.quantity) * Number(row.rate),
       invoice: invoice,
       shop_id: shop.value
     }));
@@ -738,7 +738,7 @@ const confirmSubmit = async () => {
                   min="0"
                   step="0.01"
                   value={row.amount}
-                  onChange={(e) => handleInputChange(row.id, 'amount', e.target.value)}
+                  readOnly
                   required
                   aria-label="Amount"
                 />
