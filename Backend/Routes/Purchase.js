@@ -78,6 +78,7 @@ router.post('/add', async (req, res) => {
   const arr = req.body.arr;
   const purchaseDate = req.body.date;
   const locationId = req.body.location;
+  const charges = req.body.charges || {};
 
   if (!Array.isArray(arr) || !purchaseDate || !locationId) {
     return res.status(400).json({
@@ -88,85 +89,121 @@ router.post('/add', async (req, res) => {
   let conn;
 
   try {
-    conn = await db.getConnection();
     await conn.beginTransaction();
 
+const cgst = Number(charges.cgst) || 0;
+const sgst = Number(charges.sgst) || 0;
+const freight = Number(charges.freight) || 0;
+const otherCharges = Array.isArray(charges.otherCharges)
+  ? charges.otherCharges.reduce(
+      (sum, charge) => sum + (Number(charge.amount) || 0),
+      0
+    )
+  : Number(charges.otherCharges) || 0;
+const grandTotal = Number(charges.grandTotal) || 0;
+
     for (const row of arr) {
-      const {
+  const {
+    item_id,
+    quantity,
+    rate,
+    amount,
+    invoice,
+    shop_id
+  } = row;
+
+  if (
+    !item_id ||
+    !quantity ||
+    amount === undefined ||
+    amount === null ||
+    !invoice ||
+    !shop_id
+  ) {
+    throw new Error('Missing fields in one of the rows');
+  }
+
+  const qty = Number(quantity);
+  const purchaseRate = Number(rate);
+  const lineAmount = qty * purchaseRate;
+
+  if (
+    !Number.isFinite(qty) ||
+    qty <= 0 ||
+    !Number.isFinite(purchaseRate) ||
+    purchaseRate < 0
+  ) {
+    throw new Error('Invalid quantity or rate');
+  }
+
+  const insertPurchase = `
+    INSERT INTO purchases
+      (
         item_id,
         quantity,
+        invoice_no,
         amount,
-        invoice,
-        shop_id
-      } = row;
-
-      if (
-        !item_id ||
-        !quantity ||
-        amount === undefined ||
-        amount === null ||
-        !invoice ||
-        !shop_id
-      ) {
-        throw new Error('Missing fields in one of the rows');
-      }
-
-      const qty = Number(quantity);
-      const total = Number(amount);
-
-      if (
-        !Number.isFinite(qty) ||
-        qty <= 0 ||
-        !Number.isFinite(total) ||
-        total < 0
-      ) {
-        throw new Error('Invalid quantity or amount');
-      }
-
-      const insertPurchase = `
-        INSERT INTO purchases
-          (
-            item_id,
-            quantity,
-            invoice_no,
-            amount,
-            shop_id,
-            purchase_date,
-            location_id
-          )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
-
-      await conn.query(insertPurchase, [
-        item_id,
-        qty,
-        invoice,
-        total,
         shop_id,
-        purchaseDate,
-        locationId
-      ]);
+        purchase_date,
+        location_id
+      )
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
 
-      const upsertStock = `
-        INSERT INTO stock
-          (
-            item_id,
-            quantity,
-            location_id
-          )
-        VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          quantity = quantity + VALUES(quantity)
-      `;
+  await conn.query(insertPurchase, [
+    item_id,
+    qty,
+    invoice,
+    purchaseRate,
+    shop_id,
+    purchaseDate,
+    locationId
+  ]);
 
-      await conn.query(upsertStock, [
+  const upsertStock = `
+    INSERT INTO stock
+      (
         item_id,
-        qty,
-        locationId
-      ]);
-    }
+        quantity,
+        location_id
+      )
+    VALUES (?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      quantity = quantity + VALUES(quantity)
+  `;
 
-    await conn.commit();
+  await conn.query(upsertStock, [
+    item_id,
+    qty,
+    locationId
+  ]);
+}
+
+const insertCharges = `
+  INSERT INTO purchase_invoice_charges
+    (
+      invoice_no,
+      location_id,
+      cgst,
+      sgst,
+      freight,
+      other_charges,
+      grand_total
+    )
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`;
+
+await conn.query(insertCharges, [
+  arr[0].invoice,
+  locationId,
+  cgst,
+  sgst,
+  freight,
+  otherCharges,
+  grandTotal
+]);
+
+await conn.commit();
 
     res.status(200).json({
       message: 'Items processed successfully'
