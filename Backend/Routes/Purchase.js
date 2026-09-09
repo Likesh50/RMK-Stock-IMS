@@ -86,124 +86,151 @@ router.post('/add', async (req, res) => {
     });
   }
 
+  if (arr.length === 0) {
+    return res.status(400).json({
+      message: 'No purchase rows provided'
+    });
+  }
+
   let conn;
 
   try {
+    conn = await db.getConnection();
     await conn.beginTransaction();
 
-const cgst = Number(charges.cgst) || 0;
-const sgst = Number(charges.sgst) || 0;
-const freight = Number(charges.freight) || 0;
-const otherCharges = Array.isArray(charges.otherCharges)
-  ? charges.otherCharges.reduce(
-      (sum, charge) => sum + (Number(charge.amount) || 0),
-      0
-    )
-  : Number(charges.otherCharges) || 0;
-const grandTotal = Number(charges.grandTotal) || 0;
+    const cgst = Number(charges.cgst) || 0;
+    const sgst = Number(charges.sgst) || 0;
+    const freight = Number(charges.freight) || 0;
+
+    const otherCharges = Array.isArray(charges.otherCharges)
+      ? charges.otherCharges.reduce(
+          (sum, charge) => sum + (Number(charge.amount) || 0),
+          0
+        )
+      : Number(charges.otherCharges) || 0;
+
+    const grandTotal = Number(charges.grandTotal) || 0;
 
     for (const row of arr) {
-  const {
-    item_id,
-    quantity,
-    rate,
-    amount,
-    invoice,
-    shop_id
-  } = row;
-
-  if (
-    !item_id ||
-    !quantity ||
-    amount === undefined ||
-    amount === null ||
-    !invoice ||
-    !shop_id
-  ) {
-    throw new Error('Missing fields in one of the rows');
-  }
-
-  const qty = Number(quantity);
-  const purchaseRate = Number(rate);
-  const lineAmount = qty * purchaseRate;
-
-  if (
-    !Number.isFinite(qty) ||
-    qty <= 0 ||
-    !Number.isFinite(purchaseRate) ||
-    purchaseRate < 0
-  ) {
-    throw new Error('Invalid quantity or rate');
-  }
-
-  const insertPurchase = `
-    INSERT INTO purchases
-      (
+      const {
         item_id,
         quantity,
-        invoice_no,
+        rate,
         amount,
-        shop_id,
-        purchase_date,
-        location_id
-      )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
+        invoice,
+        shop_id
+      } = row;
 
-  await conn.query(insertPurchase, [
-    item_id,
-    qty,
-    invoice,
-    purchaseRate,
-    shop_id,
-    purchaseDate,
-    locationId
-  ]);
+      if (
+        !item_id ||
+        !quantity ||
+        rate === undefined ||
+        rate === null ||
+        amount === undefined ||
+        amount === null ||
+        !invoice ||
+        !shop_id
+      ) {
+        throw new Error('Missing fields in one of the rows');
+      }
 
-  const upsertStock = `
-    INSERT INTO stock
-      (
+      const qty = Number(quantity);
+      const purchaseRate = Number(rate);
+      const lineAmount = Number(amount);
+
+      if (
+        !Number.isFinite(qty) ||
+        qty <= 0 ||
+        !Number.isFinite(purchaseRate) ||
+        purchaseRate < 0 ||
+        !Number.isFinite(lineAmount) ||
+        lineAmount < 0
+      ) {
+        throw new Error('Invalid quantity, rate or amount');
+      }
+
+      const expectedAmount = Number((qty * purchaseRate).toFixed(2));
+
+      if (Math.abs(lineAmount - expectedAmount) > 0.01) {
+        throw new Error('Amount does not match quantity × rate');
+      }
+
+      const insertPurchase = `
+        INSERT INTO purchases
+          (
+            item_id,
+            quantity,
+            rate,
+            invoice_no,
+            amount,
+            shop_id,
+            purchase_date,
+            location_id
+          )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await conn.query(insertPurchase, [
         item_id,
-        quantity,
-        location_id
-      )
-    VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-      quantity = quantity + VALUES(quantity)
-  `;
+        qty,
+        purchaseRate,
+        invoice,
+        lineAmount,
+        shop_id,
+        purchaseDate,
+        locationId
+      ]);
 
-  await conn.query(upsertStock, [
-    item_id,
-    qty,
-    locationId
-  ]);
-}
+      const upsertStock = `
+        INSERT INTO stock
+          (
+            item_id,
+            quantity,
+            location_id
+          )
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          quantity = quantity + VALUES(quantity)
+      `;
 
-const insertCharges = `
-  INSERT INTO purchase_invoice_charges
-    (
-      invoice_no,
-      location_id,
+      await conn.query(upsertStock, [
+        item_id,
+        qty,
+        locationId
+      ]);
+    }
+
+    const insertCharges = `
+      INSERT INTO purchase_invoice_charges
+        (
+          invoice_no,
+          location_id,
+          cgst,
+          sgst,
+          freight,
+          other_charges,
+          grand_total
+        )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        cgst = VALUES(cgst),
+        sgst = VALUES(sgst),
+        freight = VALUES(freight),
+        other_charges = VALUES(other_charges),
+        grand_total = VALUES(grand_total)
+    `;
+
+    await conn.query(insertCharges, [
+      arr[0].invoice,
+      locationId,
       cgst,
       sgst,
       freight,
-      other_charges,
-      grand_total
-    )
-  VALUES (?, ?, ?, ?, ?, ?, ?)
-`;
+      otherCharges,
+      grandTotal
+    ]);
 
-await conn.query(insertCharges, [
-  arr[0].invoice,
-  locationId,
-  cgst,
-  sgst,
-  freight,
-  otherCharges,
-  grandTotal
-]);
-
-await conn.commit();
+    await conn.commit();
 
     res.status(200).json({
       message: 'Items processed successfully'
@@ -258,3 +285,4 @@ router.get('/getPurchases/:date', async (req, res) => {
 
 
 module.exports = router;
+

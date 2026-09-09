@@ -789,9 +789,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
               <thead>
                 <tr>
                   {columns.sno && <th className="sno center">SL.NO</th>}
+                  {columns.invoice && <th className="invoice left">INVOICE/BILL NO</th>}
                   {columns.date && <th className="date center">DATE</th>}
                   {columns.shop && <th className="shop left">SHOP NAME</th>}
-                  {columns.invoice && <th className="invoice left">INVOICE/BILL NO</th>}
                   {columns.item && <th className="item left">ITEM NAME</th>}
                   {columns.category && <th className="category left">CATEGORY</th>}
                   {columns.qty && <th className="qty right">QTY</th>}
@@ -808,9 +808,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
                     {rows.map((row, index) => (
                       <tr key={index}>
                         {columns.sno && <td className="center">{index + 1}</td>}
+                        {columns.invoice && <td className="left">{row.invoice_no || '—'}</td>}
                         {columns.date && <td className="center">{formatDate(row.purchase_date)}</td>}
                         {columns.shop && <td className="left">{row.shop_name || '—'}</td>}
-                        {columns.invoice && <td className="left">{row.invoice_no || '—'}</td>}
                         {columns.item && <td className="left">{row.item_name || '—'}</td>}
                         {columns.category && <td className="left">{row.category || '—'}</td>}
                         {columns.qty && <td className="right">{Number(row.quantity) || 0}</td>}

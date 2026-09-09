@@ -631,6 +631,7 @@ router.get('/comparativeAvailableStock', async (req, res) => {
 });
 
 
+
 // 🛒 Purchase Report
 router.get('/purchaseReport', async (req, res) => {
   try {
@@ -643,34 +644,28 @@ router.get('/purchaseReport', async (req, res) => {
       });
     }
 
-    // Build the purchases SELECT
     let purchaseSelect = `
-      SELECT 
+      SELECT
         i.item_name,
         i.category,
         i.sub_category,
         p.quantity,
+        p.rate,
+        p.amount,
         p.invoice_no,
 
-        -- Existing p.amount is the RATE
-        p.amount AS price,
+        COALESCE(pic.cgst, 0) +
+        COALESCE(pic.sgst, 0) +
+        COALESCE(pic.freight, 0) +
+        COALESCE(pic.other_charges, 0) AS gst_others,
 
-        p.amount AS price,
-
-(p.quantity * p.amount) AS amount,
-
-COALESCE(pic.cgst, 0) +
-COALESCE(pic.sgst, 0) +
-COALESCE(pic.freight, 0) +
-COALESCE(pic.other_charges, 0) AS gst_others,
-
-(
-  (p.quantity * p.amount) +
-  COALESCE(pic.cgst, 0) +
-  COALESCE(pic.sgst, 0) +
-  COALESCE(pic.freight, 0) +
-  COALESCE(pic.other_charges, 0)
-) AS total,
+        (
+          p.amount +
+          COALESCE(pic.cgst, 0) +
+          COALESCE(pic.sgst, 0) +
+          COALESCE(pic.freight, 0) +
+          COALESCE(pic.other_charges, 0)
+        ) AS total,
 
         s.name AS shop_name,
         p.purchase_date,
@@ -689,23 +684,22 @@ COALESCE(pic.other_charges, 0) AS gst_others,
         ON p.shop_id = s.id
 
       LEFT JOIN purchase_invoice_charges pic
-  ON pic.invoice_no = p.invoice_no
-  AND pic.location_id = p.location_id
+        ON pic.invoice_no = p.invoice_no
+        AND pic.location_id = p.location_id
 
       WHERE p.purchase_date BETWEEN ? AND ?
         AND p.location_id = ?
     `;
 
-    // Build the transfers SELECT
     let transferSelect = `
       SELECT
         i.item_name,
         i.category,
         i.sub_category,
         t.quantity,
-        NULL AS invoice_no,
-        NULL AS price,
+        NULL AS rate,
         0 AS amount,
+        NULL AS invoice_no,
         0 AS gst_others,
         0 AS total,
         CONCAT("TRANSFER from ", loc.location_name) AS shop_name,
@@ -728,7 +722,6 @@ COALESCE(pic.other_charges, 0) AS gst_others,
         AND t.to_location_id = ?
     `;
 
-    // Apply optional filters to both halves
     const params = [
       startDate,
       endDate,
@@ -750,7 +743,6 @@ COALESCE(pic.other_charges, 0) AS gst_others,
       params.push(subcategory, subcategory);
     }
 
-    // Combine with UNION ALL and order by date
     const query = `
       ${purchaseSelect}
       UNION ALL
@@ -762,51 +754,48 @@ COALESCE(pic.other_charges, 0) AS gst_others,
 
     const invoiceTracker = new Set();
 
-const normalizedRows = rows.map(r => {
-  const quantity = Number(r.quantity) || 0;
-  const price = r.price != null ? Number(r.price) || 0 : 0;
+    const normalizedRows = rows.map(r => {
+      const quantity = Number(r.quantity) || 0;
+      const rate = r.rate != null ? Number(r.rate) || 0 : 0;
+      const amount = Number(r.amount) || 0;
 
-  const amount = Number(r.amount) || 0;
+      let gstOthers = Number(r.gst_others) || 0;
+      let total = Number(r.total) || 0;
 
-  let gstOthers = Number(r.gst_others) || 0;
-  let total = Number(r.total) || 0;
+      // GST / invoice charges are shown only once per invoice.
+      if (r.source_type === 'purchase' && r.invoice_no) {
+        const invoiceKey = `${r.location_id}-${r.invoice_no}`;
 
-  // Invoice-level GST/charges should be shown only once
-  // for each invoice.
-  if (r.source_type === 'purchase' && r.invoice_no) {
-    const invoiceKey = `${r.location_id}-${r.invoice_no}`;
+        if (invoiceTracker.has(invoiceKey)) {
+          gstOthers = 0;
+          total = amount;
+        } else {
+          invoiceTracker.add(invoiceKey);
+        }
+      }
 
-    if (invoiceTracker.has(invoiceKey)) {
-      gstOthers = 0;
-      total = amount;
-    } else {
-      invoiceTracker.add(invoiceKey);
-    }
-  }
+      return {
+        item_name: r.item_name,
+        category: r.category,
+        sub_category: r.sub_category,
+        quantity,
+        invoice_no: r.invoice_no || null,
+        rate,
+        price: rate,
+        amount: Number(amount.toFixed(2)),
+        gst_others: Number(gstOthers.toFixed(2)),
+        total: Number(total.toFixed(2)),
+        shop_name: r.shop_name || null,
+        purchase_date: r.purchase_date,
+        location_id: r.location_id,
 
-  return {
-    item_name: r.item_name,
-    category: r.category,
-    sub_category: r.sub_category,
-    quantity,
-    invoice_no: r.invoice_no || null,
-    price,
-    amount: Number(amount.toFixed(2)),
-    gst_others: Number(gstOthers.toFixed(2)),
-    total: Number(total.toFixed(2)),
-    shop_name: r.shop_name || null,
-    purchase_date: r.purchase_date,
-    location_id: r.location_id,
+        from_location_id: r.from_location_id || null,
+        transfer_id: r.transfer_id || null,
+        done_by_user_id: r.done_by_user_id || null,
+        source_type: r.source_type
+      };
+    });
 
-    // transfer-specific
-    from_location_id: r.from_location_id || null,
-    transfer_id: r.transfer_id || null,
-    done_by_user_id: r.done_by_user_id || null,
-    source_type: r.source_type
-  };
-});
-
-    // Grand total
     const grandTotal = normalizedRows.reduce(
       (sum, row) => sum + Number(row.total || 0),
       0
@@ -826,6 +815,7 @@ const normalizedRows = rows.map(r => {
     });
   }
 });
+
 
 /// ✅ Transfer Report (GET)
 router.get('/transferReport', async (req, res) => {
