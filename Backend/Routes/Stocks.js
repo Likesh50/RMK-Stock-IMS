@@ -27,7 +27,7 @@ router.get('/availablestock', async (req, res) => {
     COALESCE(
       MAX(
         (
-          SELECT p.amount
+          SELECT p.rate
           FROM purchases p
           WHERE p.item_id = s.item_id
           AND p.location_id = s.location_id
@@ -99,8 +99,7 @@ const calculateDaysLeft = (expiryDate) => {
 
 const calculateDaysSince = (purchaseDate) => {
     const today = moment();
-    const purchase = moment(purchaseDate);
-    return today.diff(purchase, 'days');
+    return today.diff(purchaseDate, 'days');
 };
 
 module.exports = router;

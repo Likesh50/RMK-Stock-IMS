@@ -64,7 +64,7 @@ router.get('/dispatchReport', async (req, res) => {
      * 🧠 Strategy:
      * - Fetch dispatch + transfer records
      * - For each item, pull the latest price from purchases table
-     *   using (SELECT p.amount FROM purchases p ... ORDER BY p.purchase_date DESC LIMIT 1)
+     *   using the rate column as the unit price
      */
 
     // ---- DISPATCH SELECT ----
@@ -82,22 +82,24 @@ router.get('/dispatchReport', async (req, res) => {
 
         d.remaining_quantity AS available_quantity,
 
-        -- Latest per-item purchase price (any location)
+        -- Latest per-item purchase rate from the same location
         (
-          SELECT p.amount
+          SELECT p.rate
           FROM purchases p
           WHERE p.item_id = i.item_id
-          ORDER BY p.purchase_date DESC
+            AND p.location_id = d.location_id
+          ORDER BY p.purchase_date DESC, p.purchase_id DESC
           LIMIT 1
         ) AS price,
 
-        -- total = quantity * price
+        -- total = quantity * rate
         (
           d.quantity * (
-            SELECT p.amount
+            SELECT p.rate
             FROM purchases p
             WHERE p.item_id = i.item_id
-            ORDER BY p.purchase_date DESC
+              AND p.location_id = d.location_id
+            ORDER BY p.purchase_date DESC, p.purchase_id DESC
             LIMIT 1
           )
         ) AS total,
@@ -130,14 +132,14 @@ router.get('/dispatchReport', async (req, res) => {
         NULL AS incharge,
         NULL AS available_quantity,
         (
-          SELECT p.amount
+          SELECT p.rate
           FROM purchases p
           WHERE p.item_id = i.item_id
           ORDER BY p.purchase_date DESC
           LIMIT 1
         ) AS price,
         (t.quantity * (
-          SELECT p.amount
+          SELECT p.rate
           FROM purchases p
           WHERE p.item_id = i.item_id
           ORDER BY p.purchase_date DESC
@@ -248,8 +250,8 @@ router.get('/itemMovement', async (req, res) => {
         p.purchase_date AS dt,
         'purchase' AS source_type,
         p.quantity,
-        p.amount AS price,
-        (p.quantity * p.amount) AS total,
+        p.rate AS price,
+        (p.quantity * p.rate) AS total,
         s.name AS source_name,
         p.location_id,
         NULL AS other_location_id
@@ -271,16 +273,20 @@ router.get('/itemMovement', async (req, res) => {
         d.dispatch_date AS dt,
         'dispatch' AS source_type,
         d.quantity,
-        -- get latest purchase price for item as price (if you store dispatch price elsewhere, replace)
+        -- get latest purchase rate for item as price
         (
-          SELECT p2.amount FROM purchases p2
+          SELECT p2.rate
+          FROM purchases p2
           WHERE p2.item_id = d.item_id
-          ORDER BY p2.purchase_date DESC LIMIT 1
+          ORDER BY p2.purchase_date DESC
+          LIMIT 1
         ) AS price,
         d.quantity * (
-          SELECT COALESCE(p2.amount,0) FROM purchases p2
+          SELECT COALESCE(p2.rate,0)
+          FROM purchases p2
           WHERE p2.item_id = d.item_id
-          ORDER BY p2.purchase_date DESC LIMIT 1
+          ORDER BY p2.purchase_date DESC
+          LIMIT 1
         ) AS total,
         COALESCE(b.block_name, CONCAT('Dispatch from loc ', d.location_id)) AS source_name,
         d.location_id,
@@ -304,14 +310,18 @@ router.get('/itemMovement', async (req, res) => {
         'transfer_out' AS source_type,
         t.quantity,
         (
-          SELECT p2.amount FROM purchases p2
+          SELECT p2.rate
+          FROM purchases p2
           WHERE p2.item_id = t.item_id
-          ORDER BY p2.purchase_date DESC LIMIT 1
+          ORDER BY p2.purchase_date DESC
+          LIMIT 1
         ) AS price,
         t.quantity * (
-          SELECT COALESCE(p2.amount,0) FROM purchases p2
+          SELECT COALESCE(p2.rate,0)
+          FROM purchases p2
           WHERE p2.item_id = t.item_id
-          ORDER BY p2.purchase_date DESC LIMIT 1
+          ORDER BY p2.purchase_date DESC
+          LIMIT 1
         ) AS total,
         CONCAT('TRANSFER to ', COALESCE(loc_to.location_name, t.to_location_id)) AS source_name,
         t.from_location_id AS location_id,
@@ -334,14 +344,18 @@ router.get('/itemMovement', async (req, res) => {
         'transfer_in' AS source_type,
         t.quantity,
         (
-          SELECT p2.amount FROM purchases p2
+          SELECT p2.rate
+          FROM purchases p2
           WHERE p2.item_id = t.item_id
-          ORDER BY p2.purchase_date DESC LIMIT 1
+          ORDER BY p2.purchase_date DESC
+          LIMIT 1
         ) AS price,
         t.quantity * (
-          SELECT COALESCE(p2.amount,0) FROM purchases p2
+          SELECT COALESCE(p2.rate,0)
+          FROM purchases p2
           WHERE p2.item_id = t.item_id
-          ORDER BY p2.purchase_date DESC LIMIT 1
+          ORDER BY p2.purchase_date DESC
+          LIMIT 1
         ) AS total,
         CONCAT('TRANSFER from ', COALESCE(loc_from.location_name, t.from_location_id)) AS source_name,
         t.to_location_id AS location_id,
@@ -375,56 +389,56 @@ router.get('/itemMovement', async (req, res) => {
     // Normalize rows: convert numbers, ensure price/total numeric
     const invoiceTracker = new Set();
 
-const normalizedRows = rows.map(r => {
-  const quantity = Number(r.quantity) || 0;
-  const price = r.price != null ? Number(r.price) || 0 : 0;
+    const normalizedRows = rows.map(r => {
+      const quantity = Number(r.quantity) || 0;
+      const price = r.price != null ? Number(r.price) || 0 : 0;
 
-  const amount = Number(r.amount) || 0;
+      const amount = Number(r.amount) || 0;
 
-  let gstOthers = Number(r.gst_others) || 0;
-  let total = Number(r.total) || 0;
+      let gstOthers = Number(r.gst_others) || 0;
+      let total = Number(r.total) || 0;
 
-  // GST/charges should be shown only once per invoice.
-  // Transfers do not have invoice-level GST.
-  if (r.source_type === 'purchase' && r.invoice_no) {
-    const invoiceKey = `${r.location_id}-${r.invoice_no}`;
+      // GST/charges should be shown only once per invoice.
+      // Transfers do not have invoice-level GST.
+      if (r.source_type === 'purchase' && r.invoice_no) {
+        const invoiceKey = `${r.location_id}-${r.invoice_no}`;
 
-    if (invoiceTracker.has(invoiceKey)) {
-      gstOthers = 0;
-      total = amount;
-    } else {
-      invoiceTracker.add(invoiceKey);
-    }
-  }
+        if (invoiceTracker.has(invoiceKey)) {
+          gstOthers = 0;
+          total = amount;
+        } else {
+          invoiceTracker.add(invoiceKey);
+        }
+      }
 
-  return {
-    item_name: r.item_name,
-    category: r.category,
-    sub_category: r.sub_category,
-    quantity,
-    invoice_no: r.invoice_no || null,
-    price,
-    amount: Number(amount.toFixed(2)),
-    gst_others: Number(gstOthers.toFixed(2)),
-    total: Number(total.toFixed(2)),
-    shop_name: r.shop_name || null,
-    purchase_date: r.purchase_date,
-    location_id: r.location_id,
+      return {
+        item_name: r.item_name,
+        category: r.category,
+        sub_category: r.sub_category,
+        quantity,
+        invoice_no: r.invoice_no || null,
+        price,
+        amount: Number(amount.toFixed(2)),
+        gst_others: Number(gstOthers.toFixed(2)),
+        total: Number(total.toFixed(2)),
+        shop_name: r.shop_name || null,
+        purchase_date: r.purchase_date,
+        location_id: r.location_id,
 
-    // transfer-specific
-    from_location_id: r.from_location_id || null,
-    transfer_id: r.transfer_id || null,
-    done_by_user_id: r.done_by_user_id || null,
-    source_type: r.source_type
-  };
-});
+        // transfer-specific
+        from_location_id: r.from_location_id || null,
+        transfer_id: r.transfer_id || null,
+        done_by_user_id: r.done_by_user_id || null,
+        source_type: r.source_type
+      };
+    });
 
     // Compute summary totals relative to the optional location_id:
     // purchases: sum of source_type === 'purchase'
     // dispatches: sum of 'dispatch'
     // transfer_out: 'transfer_out'
     // transfer_in: 'transfer_in'
-    const summary = normalized.reduce((acc, row) => {
+    const summary = normalizedRows.reduce((acc, row) => {
       const q = Number(row.quantity) || 0;
       const amt = Number(row.total) || 0;
       if (row.source_type === 'purchase') {
@@ -462,7 +476,7 @@ const normalizedRows = rows.map(r => {
 
     res.json({
       success: true,
-      data: normalized,
+      data: normalizedRows,
       summary: {
         purchaseQty: summary.purchaseQty,
         purchaseAmount: Number(summary.purchaseAmount.toFixed(2)),
@@ -533,7 +547,7 @@ router.get('/comparativeAvailableStock', async (req, res) => {
         COALESCE(SUM(s.quantity), 0) AS quantity,
         COALESCE(
           (
-            SELECT p.amount
+            SELECT p.rate
             FROM purchases p
             WHERE p.item_id = s.item_id
             ORDER BY p.purchase_date DESC
