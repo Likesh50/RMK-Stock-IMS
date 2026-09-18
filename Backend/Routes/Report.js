@@ -863,6 +863,7 @@ router.get('/transferReport', async (req, res) => {
     const params = [startDate, endDate];
 
     //csd besties visit
+    //fight or not fight dont know
 
     if (from_location_id) {
       query += ' AND t.from_location_id = ?';
