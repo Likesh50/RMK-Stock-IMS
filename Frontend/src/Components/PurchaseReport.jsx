@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
+import EditableReportValue from './EditableReportValue';
 
 const Container = styled.div`
   @media print {
@@ -421,7 +422,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
           .filter(Boolean)
           .join(', ');
 
-  // Backend-returned grand total (fallback to computed if absent)
+  // Purchase report totals use the stored pre-GST line amounts.
   const [backendGrandTotal, setBackendGrandTotal] = useState(null);
 
   useEffect(() => {
@@ -458,9 +459,9 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
             location_name: loc.location_name,
             quantity: Number(r.quantity) || 0,
             rate: Number(r.rate ?? r.price) || 0,
-            amount: (Number(r.quantity) || 0) * (Number(r.rate ?? r.price) || 0),
+            amount: Number(r.amount) || 0,
             gst_others: Number(r.gst_others) || 0,
-            total: ((Number(r.quantity) || 0) * (Number(r.rate ?? r.price) || 0)) + (Number(r.gst_others) || 0)
+            total: r.total == null ? 0 : Number(r.total)
           }));
 
           combined = [...combined, ...normalized];
@@ -527,8 +528,8 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
     return (a.item_name || '').localeCompare(b.item_name || '');
   });
 
-  // Compute grand total if backend didn't provide it
-  const computedGrandTotal = sortedFilteredData.reduce((sum, row) => sum + (Number(row.total) || ((Number(row.amount) || 0) + (Number(row.gst_others) || 0))), 0);
+  // Compute the report total from the displayed pre-GST amounts.
+  const computedGrandTotal = sortedFilteredData.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   const grandTotalToShow = (backendGrandTotal !== null) ? backendGrandTotal : computedGrandTotal;
 
   const groupedData = filteredData.reduce((acc, row) => {
@@ -553,8 +554,8 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
     qty: visibleColumns.qty !== undefined ? visibleColumns.qty : true,
     price: visibleColumns.price !== undefined ? visibleColumns.price : true,
     amount: visibleColumns.amount !== undefined ? visibleColumns.amount : true,
-    gstOthers: visibleColumns.gstOthers !== undefined ? visibleColumns.gstOthers : true,
-    total: visibleColumns.total !== undefined ? visibleColumns.total : true
+    gstOthers: false,
+    total: false
   };
 
   // Visible columns count for colspan logic:
@@ -775,7 +776,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
         });
 
         const locationTotal = rows.reduce(
-          (sum, row) => sum + (Number(row.total) || ((Number(row.amount) || 0) + (Number(row.gst_others) || 0))),
+          (sum, row) => sum + (Number(row.amount) || 0),
           0
         );
 
@@ -814,10 +815,26 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
                         {columns.item && <td className="left">{row.item_name || '—'}</td>}
                         {columns.category && <td className="left">{row.category || '—'}</td>}
                         {columns.qty && <td className="right">{Number(row.quantity) || 0}</td>}
-                        {columns.price && <td className="right">{formatNumber(row.rate)}</td>}
-                        {columns.amount && <td className="right">{formatNumber(row.amount)}</td>}
-                        {columns.gstOthers && <td className="right">{formatNumber(row.gst_others)}</td>}
-                        {columns.total && <td className="right">{formatNumber(row.total)}</td>}
+                        {columns.price && (
+                          <td className="right">
+                            <EditableReportValue
+                              value={row.rate}
+                              overrideKey={row.override_key}
+                              field="price"
+                              onSaved={value => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, rate: value } : item))}
+                            />
+                          </td>
+                        )}
+                        {columns.amount && (
+                          <td className="right">
+                            <EditableReportValue
+                              value={row.amount}
+                              overrideKey={row.override_key}
+                              field="amount"
+                              onSaved={value => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, amount: value } : item))}
+                            />
+                          </td>
+                        )}
                       </tr>
                     ))}
 
@@ -844,7 +861,7 @@ export const PurchaseReport = React.forwardRef(({ fromDate, toDate, visibleColum
       })}
 
       <h3 style={{ textAlign: 'right', marginTop: 20 }}>
-        GRAND TOTAL: {formatNumber(grandTotalToShow)}
+        TOTAL AMOUNT: {formatNumber(grandTotalToShow)}
       </h3>
 
       {false && (

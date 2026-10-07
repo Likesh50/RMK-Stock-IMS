@@ -7,6 +7,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Logo from '../assets/Logo.png';
 import dayjs from 'dayjs';
+import EditableReportValue from './EditableReportValue';
 
 /* Theme color used for footer + header */
 const THEME_COLOR = '#164863';
@@ -288,9 +289,9 @@ const LoaderOverlay = styled.div` position: fixed; inset: 0; background: rgba(25
 /* helper formatting */
 const fNum = n => (n == null ? '0' : Number(n).toLocaleString());
 const fMoney = m => {
-  if (m == null) return '0.00';
+  if (m == null) return 'N/A';
   const num = Number(m);
-  if (Number.isNaN(num)) return '0.00';
+  if (!Number.isFinite(num)) return 'N/A';
   return num.toFixed(2);
 };
 const formatDate = (dateString) => {
@@ -421,7 +422,44 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedItem, fromDate, toDate]);
 
-  const totalAmountInStock = summary ? Number((summary.totalPurchaseAmount || 0) - (summary.totalDispatchAmount || 0)).toFixed(2) : null;
+  const totalAmountInStock = summary && summary.totalPurchaseAmount != null && summary.totalDispatchAmount != null
+    ? Number(summary.totalPurchaseAmount - summary.totalDispatchAmount).toFixed(2)
+    : null;
+
+  const handleValueSaved = (overrideKey, field, value) => {
+    const updatedRows = rows.map(row => row.override_key === overrideKey ? { ...row, [field]: value } : row);
+    setRows(updatedRows);
+
+    const sumForType = sourceType => {
+      const matchingRows = updatedRows.filter(row => row.source_type === sourceType);
+      return matchingRows.some(row => row.total == null)
+        ? null
+        : matchingRows.reduce((sum, row) => sum + Number(row.total), 0);
+    };
+    const purchaseAmount = sumForType('purchase');
+    const dispatchAmount = sumForType('dispatch');
+    const transferInAmount = sumForType('transfer_in');
+    const transferOutAmount = sumForType('transfer_out');
+
+    setSummary(current => current ? {
+      ...current,
+      purchaseAmount,
+      dispatchAmount,
+      transferInAmount,
+      transferOutAmount,
+      totalPurchaseAmount: purchaseAmount == null || transferInAmount == null ? null : purchaseAmount + transferInAmount,
+      totalDispatchAmount: dispatchAmount == null || transferOutAmount == null ? null : dispatchAmount + transferOutAmount
+    } : current);
+  };
+
+  const renderMoneyEditor = (row, field) => (
+    <EditableReportValue
+      value={row[field]}
+      overrideKey={row.override_key}
+      field={field}
+      onSaved={value => handleValueSaved(row.override_key, field, value)}
+    />
+  );
 
   // Determine institution name (same logic as PurchaseReport)
   const locationnameKey = localStorage.getItem('locationname') || '';
@@ -524,8 +562,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="left">{r.source_name || 'Purchase'}</td>
                       <td className="center">Purchase</td>
                       <td className="right">{fNum(r.quantity)}</td>
-                      <td className="right">{fMoney(r.price)}</td>
-                      <td className="right">{fMoney(r.total)}</td>
+                      <td className="right">{renderMoneyEditor(r, 'price')}</td>
+                      <td className="right">{renderMoneyEditor(r, 'total')}</td>
                     </RowPurchase>
                   );
                 } else if (r.source_type === 'dispatch') {
@@ -536,8 +574,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="left">{r.source_name || 'Dispatch'}</td>
                       <td className="center">Dispatch</td>
                       <td className="right">{fNum(r.quantity)}</td>
-                      <td className="right">{fMoney(r.price)}</td>
-                      <td className="right">{fMoney(r.total)}</td>
+                      <td className="right">{renderMoneyEditor(r, 'price')}</td>
+                      <td className="right">{renderMoneyEditor(r, 'total')}</td>
                     </RowDispatch>
                   );
                 } else if (r.source_type === 'transfer_in') {
@@ -548,8 +586,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="left">{r.source_name || 'Transfer In'}</td>
                       <td className="center">Transfer In</td>
                       <td className="right">{fNum(r.quantity)}</td>
-                      <td className="right">{fMoney(r.price)}</td>
-                      <td className="right">{fMoney(r.total)}</td>
+                      <td className="right">{renderMoneyEditor(r, 'price')}</td>
+                      <td className="right">{renderMoneyEditor(r, 'total')}</td>
                     </RowTransferIn>
                   );
                 } else if (r.source_type === 'transfer_out') {
@@ -560,8 +598,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="left">{r.source_name || 'Transfer Out'}</td>
                       <td className="center">Transfer Out</td>
                       <td className="right">{fNum(r.quantity)}</td>
-                      <td className="right">{fMoney(r.price)}</td>
-                      <td className="right">{fMoney(r.total)}</td>
+                      <td className="right">{renderMoneyEditor(r, 'price')}</td>
+                      <td className="right">{renderMoneyEditor(r, 'total')}</td>
                     </RowTransferOut>
                   );
                 } else {
@@ -572,8 +610,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="left">{r.source_name || ''}</td>
                       <td className="center">{r.source_type}</td>
                       <td className="right">{fNum(r.quantity)}</td>
-                      <td className="right">{fMoney(r.price)}</td>
-                      <td className="right">{fMoney(r.total)}</td>
+                      <td className="right">{renderMoneyEditor(r, 'price')}</td>
+                      <td className="right">{renderMoneyEditor(r, 'total')}</td>
                     </tr>
                   );
                 }

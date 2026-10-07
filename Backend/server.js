@@ -1,4 +1,5 @@
     const express = require("express");
+    const path = require("path");
     const app = express();
     const mysql = require("mysql2");
     const cors = require("cors");
@@ -53,7 +54,7 @@
         if (result.length === 0) {
           return res.status(401).json({ message: 'Invalid credentials' });
         }
-
+0
         const user = result[0];
         const isMatch = await bcrypt.compare(password, user.pass);
 
@@ -76,7 +77,7 @@
     app.get("/locations",async (req,res)=>{
       try{
         const [rows]=await db.query('SELECT * from locations');
-        return res.status(200).json(rows);
+        return res.status(200).json(rows); 
       }
       catch{
         return res.status(500).json({message:'Internal server error',err});
@@ -112,6 +113,15 @@
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is running!' });
 });
+
+    const frontendDist = path.join(__dirname, '..', 'Frontend', 'dist');
+    app.use(express.static(frontendDist));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(path.join(frontendDist, 'index.html'));
+    });
 
     app.listen(3002,()=>{
       console.log("You r up!!!");

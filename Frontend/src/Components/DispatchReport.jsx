@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import Axios from 'axios';
 import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
+import EditableReportValue from './EditableReportValue';
 
 
 
@@ -533,7 +534,9 @@ const selectedLocationDisplay =
   };
 
   const formatCurrency = (val) => {
-    const num = Number(val) || 0;
+    if (val == null) return 'N/A';
+    const num = Number(val);
+    if (!Number.isFinite(num)) return 'N/A';
     return num.toFixed(2);
   };
 
@@ -623,7 +626,9 @@ const selectedLocationDisplay =
   const visibleCount = Object.values(finalColumns).filter(Boolean).length;
 
   // Compute grand total (sum of 'total' field)
-  const grandTotalAmount = filteredData.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+  const grandTotalAmount = filteredData.some(row => row.total == null)
+    ? null
+    : filteredData.reduce((sum, row) => sum + Number(row.total), 0);
 
   //GROUP DATA BY LOCATION
   const groupedData = filteredData.reduce((acc, row) => {
@@ -900,10 +905,9 @@ const selectedLocationDisplay =
     );
   });
 
-  const locationTotal = rows.reduce(
-    (sum, row) => sum + (Number(row.total) || 0),
-    0
-  );
+  const locationTotal = rows.some(row => row.total == null)
+    ? null
+    : rows.reduce((sum, row) => sum + Number(row.total), 0);
 
   return (
     <div key={groupIndex} style={{ marginBottom: 40 }}>
@@ -948,8 +952,26 @@ const selectedLocationDisplay =
                   {finalColumns.sticker_no && <td>{row.sticker_no}</td>}
                   {finalColumns.receiver && <td>{row.receiver}</td>}
                   {finalColumns.incharge && <td>{row.incharge}</td>}
-                  {finalColumns.price && <td>{formatCurrency(row.price)}</td>}
-                  {finalColumns.total && <td>{formatCurrency(row.total)}</td>}
+                  {finalColumns.price && (
+                    <td>
+                      <EditableReportValue
+                        value={row.price}
+                        overrideKey={row.override_key}
+                        field="price"
+                        onSaved={value => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, price: value } : item))}
+                      />
+                    </td>
+                  )}
+                  {finalColumns.total && (
+                    <td>
+                      <EditableReportValue
+                        value={row.total}
+                        overrideKey={row.override_key}
+                        field="total"
+                        onSaved={value => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, total: value } : item))}
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
 

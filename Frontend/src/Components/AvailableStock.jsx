@@ -2,6 +2,7 @@ import React, { useEffect, useState, forwardRef, useRef } from 'react';
 import styled from 'styled-components';
 import Axios from 'axios';
 import moment from 'moment';
+import EditableReportValue from './EditableReportValue';
 import Logo from '../assets/Logo.png';
 
 const Container = styled.div`
@@ -334,6 +335,7 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
     if (!locations.length) {
       sessionStorage.removeItem('comparativeSelectedLocationIds');
       sessionStorage.removeItem('comparativeSelectedLocationNames');
+      sessionStorage.removeItem('comparativeSelectedCategories');
       return;
     }
 
@@ -348,7 +350,8 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
 
     sessionStorage.setItem('comparativeSelectedLocationIds', JSON.stringify(selectedIds));
     sessionStorage.setItem('comparativeSelectedLocationNames', JSON.stringify(selectedNames));
-  }, [selectedInstitutions, locations]);
+    sessionStorage.setItem('comparativeSelectedCategories', JSON.stringify(selectedCategories));
+  }, [selectedInstitutions, selectedCategories, locations]);
 
   useEffect(() => {
     if (!institutionMenuOpen) return;
@@ -415,8 +418,8 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
             ...r,
             location_name: loc.location_name,
             quantity: Number(r.quantity) || 0,
-            price: Number(r.price) || 0,
-            total: Number(r.total) || 0,
+            price: r.price == null ? null : Number(r.price),
+            total: r.total == null ? null : Number(r.total),
           }));
 
           combined = [...combined, ...normalized];
@@ -463,7 +466,9 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
   };
 
   const formatCurrency = (val) => {
-    const num = Number(val) || 0;
+    if (val == null) return 'N/A';
+    const num = Number(val);
+    if (!Number.isFinite(num)) return 'N/A';
     return num.toFixed(2);
   };
 
@@ -517,10 +522,9 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
     0
   );
 
-  const grandTotalAmount = sortedFilteredData.reduce(
-    (sum, row) => sum + (Number(row.total) || 0),
-    0
-  );
+  const grandTotalAmount = sortedFilteredData.some(row => row.total == null)
+    ? null
+    : sortedFilteredData.reduce((sum, row) => sum + Number(row.total), 0);
 
   // Determine institution name:
   const locationnameKey = localStorage.getItem('locationname') || '';
@@ -692,10 +696,9 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
               0
             );
 
-            const locationTotalAmount = rows.reduce(
-              (sum, row) => sum + (Number(row.total) || 0),
-              0
-            );
+            const locationTotalAmount = rows.some(row => row.total == null)
+              ? null
+              : rows.reduce((sum, row) => sum + Number(row.total), 0);
 
             return (
               <div key={groupIndex} style={{ marginBottom: 40 }}>
@@ -729,8 +732,22 @@ const AvailableStock = forwardRef(({ fromDate, toDate }, ref) => {
                               {formatNumber(item.quantity) +
                                 (item.unit ? ` ${item.unit}` : '')}
                             </td>
-                            <td className="price">{formatCurrency(item.price)}</td>
-                            <td className="total">{formatCurrency(item.total)}</td>
+                            <td className="price">
+                              <EditableReportValue
+                                value={item.price}
+                                overrideKey={item.override_key}
+                                field="price"
+                                onSaved={value => setData(current => current.map(row => row.override_key === item.override_key ? { ...row, price: value } : row))}
+                              />
+                            </td>
+                            <td className="total">
+                              <EditableReportValue
+                                value={item.total}
+                                overrideKey={item.override_key}
+                                field="total"
+                                onSaved={value => setData(current => current.map(row => row.override_key === item.override_key ? { ...row, total: value } : row))}
+                              />
+                            </td>
                           </tr>
                         ))}
                       </>

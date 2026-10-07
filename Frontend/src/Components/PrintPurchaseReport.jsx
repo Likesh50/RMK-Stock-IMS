@@ -112,9 +112,7 @@ const PrintPurchaseReport = () => {
     category: true,
     qty: true,
     price: true,
-    amount: true,
-    gstOthers: true,
-    total: true
+    amount: true
   });
 
   const toggleColumn = (key) => {
@@ -187,14 +185,6 @@ const PrintPurchaseReport = () => {
           <label>
             <input type="checkbox" checked={visibleColumns.amount} onChange={() => toggleColumn('amount')} />
             Amount
-          </label>
-          <label>
-            <input type="checkbox" checked={visibleColumns.gstOthers} onChange={() => toggleColumn('gstOthers')} />
-            GST &amp; Others
-          </label>
-          <label>
-            <input type="checkbox" checked={visibleColumns.total} onChange={() => toggleColumn('total')} />
-            Total
           </label>
         </ColumnSelector>
 

@@ -5,6 +5,7 @@ import Axios from 'axios';
 import Logo from '../assets/Logo.png';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import EditableReportValue from './EditableReportValue';
 
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -187,7 +188,7 @@ const ComparativeAvailableStockReport = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [locationTotals, setLocationTotals] = useState({});
-  const [grandTotal, setGrandTotal] = useState(0);
+  const [grandTotal, setGrandTotal] = useState(null);
 
   const formattedDate = useMemo(() => {
     const now = new Date();
@@ -201,8 +202,10 @@ const ComparativeAvailableStockReport = () => {
   useEffect(() => {
     const storedIds = sessionStorage.getItem('comparativeSelectedLocationIds');
     const storedNames = sessionStorage.getItem('comparativeSelectedLocationNames');
+    const storedCategories = sessionStorage.getItem('comparativeSelectedCategories');
     const locationIds = storedIds ? JSON.parse(storedIds) : [];
     const storedLocationNames = storedNames ? JSON.parse(storedNames) : [];
+    const selectedCategories = storedCategories ? JSON.parse(storedCategories) : [];
 
     if (!Array.isArray(locationIds) || locationIds.length === 0) {
       setError('Select one or more locations on Available Stock and reopen the Comparative Report.');
@@ -210,7 +213,11 @@ const ComparativeAvailableStockReport = () => {
       return;
     }
 
-    const queryString = `location_ids=${locationIds.map(id => encodeURIComponent(id)).join(',')}`;
+    const queryParams = new URLSearchParams({
+      location_ids: locationIds.join(','),
+      categories: JSON.stringify(selectedCategories)
+    });
+    const queryString = queryParams.toString();
     const url = `${import.meta.env.VITE_RMK_MESS_URL}/report/comparativeAvailableStock?${queryString}`;
 
     const fetchReport = async () => {
@@ -230,7 +237,7 @@ const ComparativeAvailableStockReport = () => {
         );
 
         setLocationTotals(payload.summary?.locationTotals || {});
-        setGrandTotal(Number(payload.summary?.grandTotal || 0));
+        setGrandTotal(payload.summary?.grandTotal == null ? null : Number(payload.summary.grandTotal));
       } catch (fetchError) {
         console.error('Error fetching comparative report:', fetchError);
         setError(fetchError.message || 'Unable to load comparative report.');
@@ -249,8 +256,18 @@ const ComparativeAvailableStockReport = () => {
   };
 
   const formatCurrency = (value) => {
-    const num = Number(value) || 0;
+    if (value == null) return 'N/A';
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 'N/A';
     return num.toFixed(2);
+  };
+
+  const handleValueSaved = (overrideKey, field, value) => {
+    const updatedRows = reportRows.map(row => row.override_key === overrideKey ? { ...row, [field]: value } : row);
+    setReportRows(updatedRows);
+    setGrandTotal(updatedRows.some(row => row.total == null)
+      ? null
+      : updatedRows.reduce((sum, row) => sum + Number(row.total), 0));
   };
 
   const exportToExcel = () => {
@@ -363,8 +380,22 @@ const ComparativeAvailableStockReport = () => {
                           </td>
                         );
                       })}
-                      <td className="right">{formatCurrency(row.price)}</td>
-                      <td className="right">{formatCurrency(row.total)}</td>
+                      <td className="right">
+                        <EditableReportValue
+                          value={row.price}
+                          overrideKey={row.override_key}
+                          field="price"
+                          onSaved={value => handleValueSaved(row.override_key, 'price', value)}
+                        />
+                      </td>
+                      <td className="right">
+                        <EditableReportValue
+                          value={row.total}
+                          overrideKey={row.override_key}
+                          field="total"
+                          onSaved={value => handleValueSaved(row.override_key, 'total', value)}
+                        />
+                      </td>
                     </tr>
                   ))
                 )}

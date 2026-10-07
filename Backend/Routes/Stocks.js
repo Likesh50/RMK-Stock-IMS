@@ -15,53 +15,71 @@ router.get('/availablestock', async (req, res) => {
     }
 
     const query = `
-  SELECT 
-    s.item_id,
-    i.item_name AS itemName,
-    i.sub_category AS sub_category,
-    i.category AS category,
-    i.unit AS unit,
-
-    SUM(s.quantity) AS totalQuantity,
-
-    COALESCE(
-      MAX(
-        (
-          SELECT p.rate
-          FROM purchases p
-          WHERE p.item_id = s.item_id
-          AND p.location_id = s.location_id
-          ORDER BY p.purchase_date DESC
-          LIMIT 1
-        )
-      ),
-      0
-    ) AS price
-
-  FROM stock s
-
-  JOIN items i 
-    ON s.item_id = i.item_id
-
-  WHERE s.location_id = ?
-
-  GROUP BY 
-    s.item_id,
-    i.item_name,
-    i.sub_category,
-    i.category,
-    i.unit
-
-  ORDER BY 
-    i.category,
-    i.item_name;
-`;
+      SELECT
+        s.item_id,
+        i.item_name AS itemName,
+        i.sub_category AS sub_category,
+        i.category AS category,
+        i.unit AS unit,
+        SUM(s.quantity) AS totalQuantity,
+        COALESCE(b.batchQuantity, 0) AS batchQuantity,
+        COALESCE(b.unvaluedQuantity, 0) AS unvaluedQuantity,
+        COALESCE(b.valuedAmount, 0) AS valuedAmount,
+        rvo.price AS overridePrice,
+        rvo.total AS overrideTotal
+      FROM stock s
+      JOIN items i ON s.item_id = i.item_id
+      LEFT JOIN (
+        SELECT
+          item_id,
+          location_id,
+          SUM(remaining_quantity) AS batchQuantity,
+          SUM(CASE
+            WHEN remaining_quantity > 0
+              AND (unit_rate IS NULL OR valuation_status <> 'valued')
+            THEN remaining_quantity
+            ELSE 0
+          END) AS unvaluedQuantity,
+          SUM(CASE
+            WHEN remaining_quantity > 0
+              AND unit_rate IS NOT NULL
+              AND valuation_status = 'valued'
+            THEN remaining_quantity * unit_rate
+            ELSE 0
+          END) AS valuedAmount
+        FROM inventory_batches
+        GROUP BY item_id, location_id
+      ) b ON b.item_id = s.item_id AND b.location_id = s.location_id
+      LEFT JOIN report_value_overrides rvo
+        ON rvo.override_key = CONCAT('stock:', s.item_id, ':', s.location_id)
+      WHERE s.location_id = ?
+      GROUP BY
+        s.item_id,
+        i.item_name,
+        i.sub_category,
+        i.category,
+        i.unit,
+        b.batchQuantity,
+        b.unvaluedQuantity,
+        b.valuedAmount
+      ORDER BY i.category, i.item_name;
+    `;
 
     const [rows] = await db.query(query, [locationId]);
 
     const formattedData = rows.map(stock => {
       const quantity = Number(stock.totalQuantity) || 0;
-      const price = Number(stock.price) || 0;
+      const batchQuantity = Number(stock.batchQuantity) || 0;
+      const unvaluedQuantity = Number(stock.unvaluedQuantity) || 0;
+      const batchBalancesMatch = batchQuantity === quantity;
+      const isValued = batchBalancesMatch && unvaluedQuantity === 0;
+      const valuedAmount = Number(stock.valuedAmount) || 0;
+      const calculatedPrice = isValued && quantity > 0
+        ? valuedAmount / quantity
+        : isValued ? 0 : null;
+      const calculatedTotal = isValued ? Number(valuedAmount.toFixed(2)) : null;
+      const price = stock.overridePrice == null ? calculatedPrice : Number(stock.overridePrice);
+      const total = stock.overrideTotal == null ? calculatedTotal : Number(stock.overrideTotal);
 
       return {
         item_id: stock.item_id,
@@ -71,7 +89,12 @@ router.get('/availablestock', async (req, res) => {
         quantity,
         unit: stock.unit,
         price,
-        total: quantity * price
+        total,
+        valuation_status: stock.overridePrice != null || stock.overrideTotal != null
+          ? 'overridden'
+          : isValued ? 'valued' : 'unvalued',
+        override_key: `stock:${stock.item_id}:${locationId}`,
+        unvalued_quantity: isValued ? 0 : Math.max(unvaluedQuantity, Math.abs(quantity - batchQuantity))
       };
     });
 

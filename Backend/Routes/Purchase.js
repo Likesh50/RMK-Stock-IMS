@@ -170,7 +170,7 @@ router.post('/add', async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
-      await conn.query(insertPurchase, [
+      const [purchaseResult] = await conn.query(insertPurchase, [
         item_id,
         qty,
         purchaseRate,
@@ -180,6 +180,34 @@ router.post('/add', async (req, res) => {
         purchaseDate,
         locationId
       ]);
+
+      await conn.query(
+        `INSERT INTO inventory_batches
+          (
+            source_key,
+            batch_type,
+            item_id,
+            location_id,
+            purchase_id,
+            acquired_date,
+            available_date,
+            received_quantity,
+            remaining_quantity,
+            unit_rate,
+            valuation_status
+          )
+        VALUES (?, 'purchase', ?, ?, ?, ?, CURDATE(), ?, ?, ?, 'valued')`,
+        [
+          `purchase:${purchaseResult.insertId}:${locationId}`,
+          item_id,
+          locationId,
+          purchaseResult.insertId,
+          purchaseDate,
+          qty,
+          qty,
+          purchaseRate
+        ]
+      );
 
       const upsertStock = `
         INSERT INTO stock

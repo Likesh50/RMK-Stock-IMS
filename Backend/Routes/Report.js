@@ -27,7 +27,6 @@ router.get('/productStock', async (req, res) => {
     `;
 
     const [rows] = await db.query(sql, [product_id]);
-
     // Normalize result (ensure numeric types)
     const normalized = rows.map(r => ({
       location_id: Number(r.location_id),
@@ -61,10 +60,7 @@ router.get('/dispatchReport', async (req, res) => {
     }
 
     /**
-     * 🧠 Strategy:
-     * - Fetch dispatch + transfer records
-     * - For each item, pull the latest price from purchases table
-     *   using the rate column as the unit price
+     * Fetch dispatch and transfer records with valuation from their persisted allocations.
      */
 
     // ---- DISPATCH SELECT ----
@@ -82,29 +78,25 @@ router.get('/dispatchReport', async (req, res) => {
 
         d.remaining_quantity AS available_quantity,
 
-        -- Latest per-item purchase rate from the same location
-        (
-          SELECT p.rate
-          FROM purchases p
-          WHERE p.item_id = i.item_id
-            AND p.location_id = d.location_id
-          ORDER BY p.purchase_date DESC, p.purchase_id DESC
-          LIMIT 1
-        ) AS price,
+        COALESCE(aOverride.price, CASE
+          WHEN d.valuation_status = 'valued'
+            AND COALESCE(a.allocated_quantity, 0) = d.quantity
+            AND COALESCE(a.unvalued_allocations, 0) = 0
+          THEN a.allocated_amount / NULLIF(d.quantity, 0)
+          ELSE NULL
+        END) AS price,
 
-        -- total = quantity * rate
-        (
-          d.quantity * (
-            SELECT p.rate
-            FROM purchases p
-            WHERE p.item_id = i.item_id
-              AND p.location_id = d.location_id
-            ORDER BY p.purchase_date DESC, p.purchase_id DESC
-            LIMIT 1
-          )
-        ) AS total,
+        COALESCE(aOverride.total, CASE
+          WHEN d.valuation_status = 'valued'
+            AND COALESCE(a.allocated_quantity, 0) = d.quantity
+            AND COALESCE(a.unvalued_allocations, 0) = 0
+          THEN a.allocated_amount
+          ELSE NULL
+        END) AS total,
+        d.valuation_status,
 
-        'dispatch' AS source_type
+        'dispatch' AS source_type,
+        CONCAT('dispatch:', d.dispatch_id) AS override_key
 
       FROM dispatch d
 
@@ -113,7 +105,17 @@ router.get('/dispatchReport', async (req, res) => {
 
       LEFT JOIN blocks b 
         ON d.block_id = b.block_id
-
+      LEFT JOIN (
+        SELECT
+          dispatch_id,
+          SUM(quantity) AS allocated_quantity,
+          SUM(amount) AS allocated_amount,
+          SUM(CASE WHEN valuation_status <> 'valued' OR amount IS NULL THEN 1 ELSE 0 END) AS unvalued_allocations
+        FROM dispatch_allocations
+        GROUP BY dispatch_id
+      ) a ON a.dispatch_id = d.dispatch_id
+      LEFT JOIN report_value_overrides aOverride
+        ON aOverride.override_key = CONCAT('dispatch:', d.dispatch_id)
 
       WHERE d.dispatch_date BETWEEN ? AND ?
     `;
@@ -131,24 +133,40 @@ router.get('/dispatchReport', async (req, res) => {
         NULL AS receiver,
         NULL AS incharge,
         NULL AS available_quantity,
-        (
-          SELECT p.rate
-          FROM purchases p
-          WHERE p.item_id = i.item_id
-          ORDER BY p.purchase_date DESC
-          LIMIT 1
-        ) AS price,
-        (t.quantity * (
-          SELECT p.rate
-          FROM purchases p
-          WHERE p.item_id = i.item_id
-          ORDER BY p.purchase_date DESC
-          LIMIT 1
-        )) AS total,
-        'transfer' AS source_type
+        COALESCE(tOverride.price, CASE
+          WHEN COALESCE(a.allocated_quantity, 0) = t.quantity
+            AND COALESCE(a.unvalued_allocations, 0) = 0
+          THEN a.allocated_amount / NULLIF(t.quantity, 0)
+          ELSE NULL
+        END) AS price,
+        COALESCE(tOverride.total, CASE
+          WHEN COALESCE(a.allocated_quantity, 0) = t.quantity
+            AND COALESCE(a.unvalued_allocations, 0) = 0
+          THEN a.allocated_amount
+          ELSE NULL
+        END) AS total,
+        CASE
+          WHEN COALESCE(a.allocated_quantity, 0) = t.quantity
+            AND COALESCE(a.unvalued_allocations, 0) = 0
+          THEN 'valued'
+          ELSE 'unvalued'
+        END AS valuation_status,
+        'transfer' AS source_type,
+        CONCAT('transfer:', t.transfer_id) AS override_key
       FROM transfer t
       JOIN items i ON t.item_id = i.item_id
       LEFT JOIN locations l ON l.location_id = t.to_location_id
+      LEFT JOIN (
+        SELECT
+          transfer_id,
+          SUM(quantity) AS allocated_quantity,
+          SUM(amount) AS allocated_amount,
+          SUM(CASE WHEN valuation_status <> 'valued' OR amount IS NULL THEN 1 ELSE 0 END) AS unvalued_allocations
+        FROM transfer_allocations
+        GROUP BY transfer_id
+      ) a ON a.transfer_id = t.transfer_id
+      LEFT JOIN report_value_overrides tOverride
+        ON tOverride.override_key = CONCAT('transfer:', t.transfer_id)
       WHERE
         t.date BETWEEN ? AND ?
         AND t.from_location_id = ?
@@ -204,23 +222,29 @@ router.get('/dispatchReport', async (req, res) => {
       sub_category: r.sub_category,
       quantity: Number(r.quantity) || 0,
       available_quantity: Number(r.available_quantity) || 0,
-      price: Number(r.price) || 0,
-      total: Number(r.total) || 0,
+      price: r.price == null ? null : Number(r.price),
+      total: r.total == null ? null : Number(r.total),
+      valuation_status: r.valuation_status || 'legacy_unallocated',
       dispatch_date: r.dispatch_date,
       block_name: r.block_name || null,
       sticker_no: r.sticker_no || null,
       receiver: r.receiver || null,
       incharge: r.incharge || null,
-      source_type: r.source_type
+      source_type: r.source_type,
+      override_key: r.override_key
     }));
 
     // ---- Calculate Grand Total ----
-    const grandTotal = normalizedRows.reduce((sum, row) => sum + (row.total || 0), 0);
+    const hasUnvaluedRows = normalizedRows.some(row => row.total == null);
+    const grandTotal = hasUnvaluedRows
+      ? null
+      : normalizedRows.reduce((sum, row) => sum + row.total, 0);
 
     res.json({
       success: true,
       data: normalizedRows,
-      grandTotal: Number(grandTotal.toFixed(2))
+      grandTotal: grandTotal == null ? null : Number(grandTotal.toFixed(2)),
+      valuation_complete: !hasUnvaluedRows
     });
   } catch (error) {
     console.error('Error fetching dispatch report:', error);
@@ -251,10 +275,12 @@ router.get('/itemMovement', async (req, res) => {
         'purchase' AS source_type,
         p.quantity,
         p.rate AS price,
-        (p.quantity * p.rate) AS total,
+        p.amount AS amount,
+        p.amount AS total,
         s.name AS source_name,
         p.location_id,
-        NULL AS other_location_id
+        NULL AS other_location_id,
+        CONCAT('purchase:', p.purchase_id) AS override_key
       FROM purchases p
       LEFT JOIN shops s ON p.shop_id = s.id
       WHERE p.item_id = ?
@@ -273,26 +299,36 @@ router.get('/itemMovement', async (req, res) => {
         d.dispatch_date AS dt,
         'dispatch' AS source_type,
         d.quantity,
-        -- get latest purchase rate for item as price
-        (
-          SELECT p2.rate
-          FROM purchases p2
-          WHERE p2.item_id = d.item_id
-          ORDER BY p2.purchase_date DESC
-          LIMIT 1
-        ) AS price,
-        d.quantity * (
-          SELECT COALESCE(p2.rate,0)
-          FROM purchases p2
-          WHERE p2.item_id = d.item_id
-          ORDER BY p2.purchase_date DESC
-          LIMIT 1
-        ) AS total,
+        CASE
+          WHEN d.valuation_status = 'valued'
+            AND COALESCE(da.allocated_quantity, 0) = d.quantity
+            AND COALESCE(da.unvalued_allocations, 0) = 0
+          THEN da.allocated_amount / NULLIF(d.quantity, 0)
+          ELSE NULL
+        END AS price,
+        NULL AS amount,
+        CASE
+          WHEN d.valuation_status = 'valued'
+            AND COALESCE(da.allocated_quantity, 0) = d.quantity
+            AND COALESCE(da.unvalued_allocations, 0) = 0
+          THEN da.allocated_amount
+          ELSE NULL
+        END AS total,
         COALESCE(b.block_name, CONCAT('Dispatch from loc ', d.location_id)) AS source_name,
         d.location_id,
-        NULL AS other_location_id
+        NULL AS other_location_id,
+        CONCAT('dispatch:', d.dispatch_id) AS override_key
       FROM dispatch d
       LEFT JOIN blocks b ON b.block_id = d.block_id
+      LEFT JOIN (
+        SELECT
+          dispatch_id,
+          SUM(quantity) AS allocated_quantity,
+          SUM(amount) AS allocated_amount,
+          SUM(CASE WHEN valuation_status <> 'valued' OR amount IS NULL THEN 1 ELSE 0 END) AS unvalued_allocations
+        FROM dispatch_allocations
+        GROUP BY dispatch_id
+      ) da ON da.dispatch_id = d.dispatch_id
       WHERE d.item_id = ?
         AND d.dispatch_date BETWEEN ? AND ?
     `;
@@ -309,25 +345,34 @@ router.get('/itemMovement', async (req, res) => {
         t.date AS dt,
         'transfer_out' AS source_type,
         t.quantity,
-        (
-          SELECT p2.rate
-          FROM purchases p2
-          WHERE p2.item_id = t.item_id
-          ORDER BY p2.purchase_date DESC
-          LIMIT 1
-        ) AS price,
-        t.quantity * (
-          SELECT COALESCE(p2.rate,0)
-          FROM purchases p2
-          WHERE p2.item_id = t.item_id
-          ORDER BY p2.purchase_date DESC
-          LIMIT 1
-        ) AS total,
+        CASE
+          WHEN COALESCE(ta.allocated_quantity, 0) = t.quantity
+            AND COALESCE(ta.unvalued_allocations, 0) = 0
+          THEN ta.allocated_amount / NULLIF(t.quantity, 0)
+          ELSE NULL
+        END AS price,
+        NULL AS amount,
+        CASE
+          WHEN COALESCE(ta.allocated_quantity, 0) = t.quantity
+            AND COALESCE(ta.unvalued_allocations, 0) = 0
+          THEN ta.allocated_amount
+          ELSE NULL
+        END AS total,
         CONCAT('TRANSFER to ', COALESCE(loc_to.location_name, t.to_location_id)) AS source_name,
         t.from_location_id AS location_id,
-        t.to_location_id AS other_location_id
+        t.to_location_id AS other_location_id,
+        CONCAT('transfer:', t.transfer_id) AS override_key
       FROM transfer t
       LEFT JOIN locations loc_to ON loc_to.location_id = t.to_location_id
+      LEFT JOIN (
+        SELECT
+          transfer_id,
+          SUM(quantity) AS allocated_quantity,
+          SUM(amount) AS allocated_amount,
+          SUM(CASE WHEN valuation_status <> 'valued' OR amount IS NULL THEN 1 ELSE 0 END) AS unvalued_allocations
+        FROM transfer_allocations
+        GROUP BY transfer_id
+      ) ta ON ta.transfer_id = t.transfer_id
       WHERE t.item_id = ?
         AND t.date BETWEEN ? AND ?
     `;
@@ -343,25 +388,34 @@ router.get('/itemMovement', async (req, res) => {
         t.date AS dt,
         'transfer_in' AS source_type,
         t.quantity,
-        (
-          SELECT p2.rate
-          FROM purchases p2
-          WHERE p2.item_id = t.item_id
-          ORDER BY p2.purchase_date DESC
-          LIMIT 1
-        ) AS price,
-        t.quantity * (
-          SELECT COALESCE(p2.rate,0)
-          FROM purchases p2
-          WHERE p2.item_id = t.item_id
-          ORDER BY p2.purchase_date DESC
-          LIMIT 1
-        ) AS total,
+        CASE
+          WHEN COALESCE(ta.allocated_quantity, 0) = t.quantity
+            AND COALESCE(ta.unvalued_allocations, 0) = 0
+          THEN ta.allocated_amount / NULLIF(t.quantity, 0)
+          ELSE NULL
+        END AS price,
+        NULL AS amount,
+        CASE
+          WHEN COALESCE(ta.allocated_quantity, 0) = t.quantity
+            AND COALESCE(ta.unvalued_allocations, 0) = 0
+          THEN ta.allocated_amount
+          ELSE NULL
+        END AS total,
         CONCAT('TRANSFER from ', COALESCE(loc_from.location_name, t.from_location_id)) AS source_name,
         t.to_location_id AS location_id,
-        t.from_location_id AS other_location_id
+        t.from_location_id AS other_location_id,
+        CONCAT('transfer:', t.transfer_id) AS override_key
       FROM transfer t
       LEFT JOIN locations loc_from ON loc_from.location_id = t.from_location_id
+      LEFT JOIN (
+        SELECT
+          transfer_id,
+          SUM(quantity) AS allocated_quantity,
+          SUM(amount) AS allocated_amount,
+          SUM(CASE WHEN valuation_status <> 'valued' OR amount IS NULL THEN 1 ELSE 0 END) AS unvalued_allocations
+        FROM transfer_allocations
+        GROUP BY transfer_id
+      ) ta ON ta.transfer_id = t.transfer_id
       WHERE t.item_id = ?
         AND t.date BETWEEN ? AND ?
     `;
@@ -373,14 +427,29 @@ router.get('/itemMovement', async (req, res) => {
 
     // Combine all queries. If location_id provided, the queries are limited by it as above.
     const finalQuery = `
-      ${purchaseSelect}
-      UNION ALL
-      ${dispatchSelect}
-      UNION ALL
-      ${transferOutSelect}
-      UNION ALL
-      ${transferInSelect}
-      ORDER BY dt ASC
+      SELECT
+        movements.dt,
+        movements.source_type,
+        movements.quantity,
+        COALESCE(overrides.price, movements.price) AS price,
+        COALESCE(overrides.amount, movements.amount) AS amount,
+        COALESCE(overrides.total, movements.total) AS total,
+        movements.source_name,
+        movements.location_id,
+        movements.other_location_id,
+        movements.override_key
+      FROM (
+        ${purchaseSelect}
+        UNION ALL
+        ${dispatchSelect}
+        UNION ALL
+        ${transferOutSelect}
+        UNION ALL
+        ${transferInSelect}
+      ) movements
+      LEFT JOIN report_value_overrides overrides
+        ON overrides.override_key = movements.override_key
+      ORDER BY movements.dt ASC
     `;
 
     // Run query
@@ -391,12 +460,11 @@ router.get('/itemMovement', async (req, res) => {
 
     const normalizedRows = rows.map(r => {
       const quantity = Number(r.quantity) || 0;
-      const price = r.price != null ? Number(r.price) || 0 : 0;
-
-      const amount = Number(r.amount) || 0;
+      const price = r.price == null ? null : Number(r.price);
+      const amount = r.amount == null ? null : Number(r.amount);
 
       let gstOthers = Number(r.gst_others) || 0;
-      let total = Number(r.total) || 0;
+      let total = r.total == null ? null : Number(r.total);
 
       // GST/charges should be shown only once per invoice.
       // Transfers do not have invoice-level GST.
@@ -418,9 +486,9 @@ router.get('/itemMovement', async (req, res) => {
         quantity,
         invoice_no: r.invoice_no || null,
         price,
-        amount: Number(amount.toFixed(2)),
+        amount: amount == null ? null : Number(amount.toFixed(2)),
         gst_others: Number(gstOthers.toFixed(2)),
-        total: Number(total.toFixed(2)),
+        total: total == null ? null : Number(total.toFixed(2)),
         shop_name: r.shop_name || null,
         purchase_date: r.purchase_date,
         location_id: r.location_id,
@@ -429,6 +497,7 @@ router.get('/itemMovement', async (req, res) => {
         from_location_id: r.from_location_id || null,
         transfer_id: r.transfer_id || null,
         done_by_user_id: r.done_by_user_id || null,
+        override_key: r.override_key,
         source_type: r.source_type
       };
     });
@@ -443,16 +512,20 @@ router.get('/itemMovement', async (req, res) => {
       const amt = Number(row.total) || 0;
       if (row.source_type === 'purchase') {
         acc.purchaseQty += q;
-        acc.purchaseAmount += amt;
+        if (row.total == null) acc.purchaseAmountComplete = false;
+        else acc.purchaseAmount += amt;
       } else if (row.source_type === 'dispatch') {
         acc.dispatchQty += q;
-        acc.dispatchAmount += amt;
+        if (row.total == null) acc.dispatchAmountComplete = false;
+        else acc.dispatchAmount += amt;
       } else if (row.source_type === 'transfer_out') {
         acc.transferOutQty += q;
-        acc.transferOutAmount += amt;
+        if (row.total == null) acc.transferOutAmountComplete = false;
+        else acc.transferOutAmount += amt;
       } else if (row.source_type === 'transfer_in') {
         acc.transferInQty += q;
-        acc.transferInAmount += amt;
+        if (row.total == null) acc.transferInAmountComplete = false;
+        else acc.transferInAmount += amt;
       }
       return acc;
     }, {
@@ -463,7 +536,11 @@ router.get('/itemMovement', async (req, res) => {
       transferOutQty: 0,
       transferOutAmount: 0,
       transferInQty: 0,
-      transferInAmount: 0
+      transferInAmount: 0,
+      purchaseAmountComplete: true,
+      dispatchAmountComplete: true,
+      transferOutAmountComplete: true,
+      transferInAmountComplete: true
     });
 
     // Totals required per your formula:
@@ -471,24 +548,28 @@ router.get('/itemMovement', async (req, res) => {
     // totalPurchaseAmount = purchaseAmount + transferInAmount
     // totalDispatchAmount = dispatchAmount + transferOutAmount
     const availableQty = summary.purchaseQty - summary.dispatchQty - summary.transferOutQty + summary.transferInQty;
-    const totalPurchaseAmount = summary.purchaseAmount + summary.transferInAmount;
-    const totalDispatchAmount = summary.dispatchAmount + summary.transferOutAmount;
+    const totalPurchaseAmount = summary.purchaseAmountComplete && summary.transferInAmountComplete
+      ? summary.purchaseAmount + summary.transferInAmount
+      : null;
+    const totalDispatchAmount = summary.dispatchAmountComplete && summary.transferOutAmountComplete
+      ? summary.dispatchAmount + summary.transferOutAmount
+      : null;
 
     res.json({
       success: true,
       data: normalizedRows,
       summary: {
         purchaseQty: summary.purchaseQty,
-        purchaseAmount: Number(summary.purchaseAmount.toFixed(2)),
+        purchaseAmount: summary.purchaseAmountComplete ? Number(summary.purchaseAmount.toFixed(2)) : null,
         dispatchQty: summary.dispatchQty,
-        dispatchAmount: Number(summary.dispatchAmount.toFixed(2)),
+        dispatchAmount: summary.dispatchAmountComplete ? Number(summary.dispatchAmount.toFixed(2)) : null,
         transferInQty: summary.transferInQty,
-        transferInAmount: Number(summary.transferInAmount.toFixed(2)),
+        transferInAmount: summary.transferInAmountComplete ? Number(summary.transferInAmount.toFixed(2)) : null,
         transferOutQty: summary.transferOutQty,
-        transferOutAmount: Number(summary.transferOutAmount.toFixed(2)),
+        transferOutAmount: summary.transferOutAmountComplete ? Number(summary.transferOutAmount.toFixed(2)) : null,
         availableQty: Number(availableQty),
-        totalPurchaseAmount: Number(totalPurchaseAmount.toFixed(2)),
-        totalDispatchAmount: Number(totalDispatchAmount.toFixed(2))
+        totalPurchaseAmount: totalPurchaseAmount == null ? null : Number(totalPurchaseAmount.toFixed(2)),
+        totalDispatchAmount: totalDispatchAmount == null ? null : Number(totalDispatchAmount.toFixed(2))
       }
     });
 
@@ -504,10 +585,17 @@ router.get('/comparativeAvailableStock', async (req, res) => {
     const rawLocationIds = req.query.location_ids || req.query.location_id;
     const locationIds = Array.isArray(rawLocationIds)
       ? rawLocationIds.map(String).filter(Boolean)
-      : String(rawLocationIds || '')
-          .split(',')
-          .map(id => id.trim())
-          .filter(Boolean);
+      : String(rawLocationIds || '').split(',').map(id => id.trim()).filter(Boolean);
+    let categories = [];
+    try {
+      categories = req.query.categories ? JSON.parse(req.query.categories) : [];
+    } catch {
+      return res.status(400).json({ success: false, message: 'Invalid categories filter' });
+    }
+
+    if (!Array.isArray(categories) || categories.some(category => typeof category !== 'string')) {
+      return res.status(400).json({ success: false, message: 'Invalid categories filter' });
+    }
 
     if (!locationIds.length) {
       return res.status(400).json({
@@ -518,14 +606,12 @@ router.get('/comparativeAvailableStock', async (req, res) => {
 
     const placeholders = locationIds.map(() => '?').join(',');
     const locationOrderPlaceholders = locationIds.map(() => '?').join(',');
-
     const locationQuery = `
       SELECT location_id, location_name
       FROM locations
       WHERE location_id IN (${placeholders})
       ORDER BY FIELD(location_id, ${locationOrderPlaceholders})
     `;
-
     const [locations] = await db.query(locationQuery, [...locationIds, ...locationIds]);
 
     if (!locations.length) {
@@ -545,20 +631,35 @@ router.get('/comparativeAvailableStock', async (req, res) => {
         l.location_id,
         l.location_name,
         COALESCE(SUM(s.quantity), 0) AS quantity,
-        COALESCE(
-          (
-            SELECT p.rate
-            FROM purchases p
-            WHERE p.item_id = s.item_id
-            ORDER BY p.purchase_date DESC
-            LIMIT 1
-          ),
-          0
-        ) AS latest_price
+        COALESCE(b.batch_quantity, 0) AS batch_quantity,
+        COALESCE(b.unvalued_quantity, 0) AS unvalued_quantity,
+        COALESCE(b.valued_amount, 0) AS valued_amount
       FROM stock s
-      JOIN items i ON s.item_id = i.item_id
-      JOIN locations l ON s.location_id = l.location_id
+      JOIN items i ON i.item_id = s.item_id
+      JOIN locations l ON l.location_id = s.location_id
+      LEFT JOIN (
+        SELECT
+          item_id,
+          location_id,
+          SUM(remaining_quantity) AS batch_quantity,
+          SUM(CASE
+            WHEN remaining_quantity > 0
+              AND (unit_rate IS NULL OR valuation_status <> 'valued')
+            THEN remaining_quantity
+            ELSE 0
+          END) AS unvalued_quantity,
+          SUM(CASE
+            WHEN remaining_quantity > 0
+              AND unit_rate IS NOT NULL
+              AND valuation_status = 'valued'
+            THEN remaining_quantity * unit_rate
+            ELSE 0
+          END) AS valued_amount
+        FROM inventory_batches
+        GROUP BY item_id, location_id
+      ) b ON b.item_id = s.item_id AND b.location_id = s.location_id
       WHERE s.location_id IN (${placeholders})
+      ${categories.length ? `AND i.category IN (${categories.map(() => '?').join(',')})` : ''}
       GROUP BY
         s.item_id,
         i.item_name,
@@ -566,11 +667,14 @@ router.get('/comparativeAvailableStock', async (req, res) => {
         i.sub_category,
         i.unit,
         l.location_id,
-        l.location_name
+        l.location_name,
+        b.batch_quantity,
+        b.unvalued_quantity,
+        b.valued_amount
       ORDER BY i.category, i.item_name, l.location_name;
     `;
 
-    const [rows] = await db.query(sql, locationIds);
+    const [rows] = await db.query(sql, [...locationIds, ...categories]);
 
     const selectedLocationNames = locations.map(loc => loc.location_name);
     const items = {};
@@ -585,28 +689,67 @@ router.get('/comparativeAvailableStock', async (req, res) => {
           category: row.category,
           sub_category: row.sub_category,
           unit: row.unit,
-          price: Number(row.latest_price) || 0,
           totalQty: 0,
           total: 0,
+          _locations: {},
         };
 
         selectedLocationNames.forEach((locName) => {
           items[itemId][locName] = 0;
+          items[itemId]._locations[locName] = {
+            batchQuantity: 0,
+            unvaluedQuantity: 0,
+            valuedAmount: 0
+          };
         });
       }
 
       items[itemId][locationName] = Number(row.quantity) || 0;
+      items[itemId]._locations[locationName] = {
+        batchQuantity: Number(row.batch_quantity) || 0,
+        unvaluedQuantity: Number(row.unvalued_quantity) || 0,
+        valuedAmount: Number(row.valued_amount) || 0
+      };
     });
+
+    const selectedLocationKey = locationIds.map(Number).sort((left, right) => left - right).join(',');
+    const overrideKeys = Object.keys(items).map(itemId => `comparative:${itemId}:${selectedLocationKey}`);
+    const [overrideRows] = overrideKeys.length
+      ? await db.query(
+          `SELECT override_key, price, total
+           FROM report_value_overrides
+           WHERE override_key IN (${overrideKeys.map(() => '?').join(',')})`,
+          overrideKeys
+        )
+      : [[]];
+    const overrideByKey = new Map(overrideRows.map(row => [row.override_key, row]));
 
     const transformed = Object.values(items).map((item) => {
       const totalQty = selectedLocationNames.reduce(
         (sum, locName) => sum + (Number(item[locName]) || 0),
         0
       );
+      const isValued = selectedLocationNames.every(locName => {
+        const valuation = item._locations[locName];
+        return valuation.batchQuantity === (Number(item[locName]) || 0) && valuation.unvaluedQuantity === 0;
+      });
+      const total = isValued
+        ? selectedLocationNames.reduce((sum, locName) => sum + item._locations[locName].valuedAmount, 0)
+        : null;
+      const { _locations, ...publicItem } = item;
+      const overrideKey = `comparative:${item.item_id}:${selectedLocationKey}`;
+      const override = overrideByKey.get(overrideKey);
       return {
-        ...item,
+        ...publicItem,
         totalQty,
-        total: Number((totalQty * item.price).toFixed(2))
+        price: override?.price != null
+          ? Number(override.price)
+          : isValued && totalQty > 0 ? Number((total / totalQty).toFixed(2)) : isValued ? 0 : null,
+        total: override?.total != null ? Number(override.total) : total == null ? null : Number(total.toFixed(2)),
+        valuation_status: override?.price != null || override?.total != null
+          ? 'overridden'
+          : isValued ? 'valued' : 'unvalued',
+        override_key: overrideKey
       };
     });
 
@@ -621,7 +764,10 @@ router.get('/comparativeAvailableStock', async (req, res) => {
       });
     });
 
-    const grandTotal = transformed.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const valuationComplete = transformed.every(item => item.total != null);
+    const grandTotal = valuationComplete
+      ? transformed.reduce((sum, item) => sum + item.total, 0)
+      : null;
 
     res.json({
       success: true,
@@ -632,7 +778,8 @@ router.get('/comparativeAvailableStock', async (req, res) => {
       })),
       summary: {
         locationTotals,
-        grandTotal: Number(grandTotal.toFixed(2))
+        grandTotal: grandTotal == null ? null : Number(grandTotal.toFixed(2)),
+        valuation_complete: valuationComplete
       }
     });
   } catch (error) {
@@ -663,9 +810,10 @@ router.get('/purchaseReport', async (req, res) => {
         i.item_name,
         i.category,
         i.sub_category,
+        p.purchase_id,
         p.quantity,
-        p.rate,
-        p.amount,
+        COALESCE(pvo.price, p.rate) AS rate,
+        COALESCE(pvo.amount, p.amount) AS amount,
         p.invoice_no,
 
         COALESCE(pic.cgst, 0) +
@@ -673,13 +821,13 @@ router.get('/purchaseReport', async (req, res) => {
         COALESCE(pic.freight, 0) +
         COALESCE(pic.other_charges, 0) AS gst_others,
 
-        (
+        COALESCE(pvo.total, (
           p.amount +
           COALESCE(pic.cgst, 0) +
           COALESCE(pic.sgst, 0) +
           COALESCE(pic.freight, 0) +
           COALESCE(pic.other_charges, 0)
-        ) AS total,
+        )) AS total,
 
         s.name AS shop_name,
         p.purchase_date,
@@ -687,7 +835,8 @@ router.get('/purchaseReport', async (req, res) => {
         NULL AS from_location_id,
         NULL AS transfer_id,
         NULL AS done_by_user_id,
-        'purchase' AS source_type
+        'purchase' AS source_type,
+        CONCAT('purchase:', p.purchase_id) AS override_key
 
       FROM purchases p
 
@@ -701,6 +850,9 @@ router.get('/purchaseReport', async (req, res) => {
         ON pic.invoice_no = p.invoice_no
         AND pic.location_id = p.location_id
 
+      LEFT JOIN report_value_overrides pvo
+        ON pvo.override_key = CONCAT('purchase:', p.purchase_id)
+
       WHERE p.purchase_date BETWEEN ? AND ?
         AND p.location_id = ?
     `;
@@ -710,19 +862,21 @@ router.get('/purchaseReport', async (req, res) => {
         i.item_name,
         i.category,
         i.sub_category,
+        NULL AS purchase_id,
         t.quantity,
-        NULL AS rate,
-        0 AS amount,
+        tvo.price AS rate,
+        COALESCE(tvo.amount, 0) AS amount,
         NULL AS invoice_no,
         0 AS gst_others,
-        0 AS total,
+        COALESCE(tvo.total, 0) AS total,
         CONCAT("TRANSFER from ", loc.location_name) AS shop_name,
         t.date AS purchase_date,
         t.to_location_id AS location_id,
         t.from_location_id,
         t.transfer_id,
         t.done_by_user_id,
-        'transfer' AS source_type
+        'transfer' AS source_type,
+        CONCAT('transfer:', t.transfer_id) AS override_key
 
       FROM transfer t
 
@@ -731,6 +885,8 @@ router.get('/purchaseReport', async (req, res) => {
 
       LEFT JOIN locations loc
         ON loc.location_id = t.from_location_id
+      LEFT JOIN report_value_overrides tvo
+        ON tvo.override_key = CONCAT('transfer:', t.transfer_id)
 
       WHERE t.date BETWEEN ? AND ?
         AND t.to_location_id = ?
@@ -806,6 +962,7 @@ router.get('/purchaseReport', async (req, res) => {
         from_location_id: r.from_location_id || null,
         transfer_id: r.transfer_id || null,
         done_by_user_id: r.done_by_user_id || null,
+        override_key: r.override_key,
         source_type: r.source_type
       };
     });
@@ -892,6 +1049,64 @@ router.get('/transferReport', async (req, res) => {
       success: false,
       message: 'Failed to fetch transfer report'
     });
+  }
+});
+
+router.post('/valueOverride', async (req, res) => {
+  const { override_key: overrideKey, field, value } = req.body;
+  const allowedFields = new Set(['price', 'amount', 'total']);
+  const validKey = /^(purchase|dispatch|transfer):\d+$|^(stock|comparative):\d+:\d+(?:,\d+)*$/;
+  const numericValue = Number(value);
+
+  if (
+    typeof overrideKey !== 'string' ||
+    !validKey.test(overrideKey) ||
+    !allowedFields.has(field) ||
+    value == null ||
+    value === '' ||
+    !Number.isFinite(numericValue) ||
+    numericValue < 0 ||
+    numericValue > 9999999999.99
+  ) {
+    return res.status(400).json({ success: false, message: 'Invalid report value override' });
+  }
+
+  const roundedValue = Number(numericValue.toFixed(2));
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [currentRows] = await connection.query(
+      `SELECT ${field} AS old_value FROM report_value_overrides WHERE override_key = ? FOR UPDATE`,
+      [overrideKey]
+    );
+    const oldValue = currentRows.length && currentRows[0].old_value != null
+      ? Number(currentRows[0].old_value)
+      : null;
+
+    await connection.query(
+      `INSERT INTO report_value_overrides (override_key, ${field})
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE ${field} = VALUES(${field})`,
+      [overrideKey, roundedValue]
+    );
+    await connection.query(
+      `INSERT INTO report_value_override_history
+        (override_key, field_name, old_value, new_value)
+       VALUES (?, ?, ?, ?)`,
+      [overrideKey, field, oldValue, roundedValue]
+    );
+
+    await connection.commit();
+    res.json({ success: true, override_key: overrideKey, field, value: roundedValue });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Error saving report value override:', error);
+    res.status(500).json({ success: false, message: 'Failed to save report value' });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
