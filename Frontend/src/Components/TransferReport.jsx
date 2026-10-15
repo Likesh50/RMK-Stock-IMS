@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
+import EditableReportCell from './EditableReportCell';
 import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
 import GlobalPrintStyles from './createGlobalStyle'; // ensure this file exports a default styled-components GlobalStyle
@@ -161,7 +162,7 @@ const institutionMap = {
   "RMK Patashala": "R.M.K. Patashala"
 };
 
-export const TransferReport = React.forwardRef(({ fromDate, toDate, visibleColumns = {} }, ref) => {
+export const TransferReport = React.forwardRef(({ fromDate, toDate, visibleColumns = {}, editable = false }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -219,6 +220,11 @@ export const TransferReport = React.forwardRef(({ fromDate, toDate, visibleColum
     if (isNaN(date)) return dateString;
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
+
+  const reportCell = (row, field, value, align = 'left') => editable
+    ? <EditableReportCell value={value} sourceType="transfer" recordId={row.transfer_id} field={field} align={align} itemId={row.item_id}
+        onSaved={saved => setData(current => current.map(item => item.transfer_id === row.transfer_id ? { ...item, [field]: saved } : item))} />
+    : (value ?? '—');
 
   const uniqueItems = [...new Set(data.map(row => row.item_name).filter(Boolean))];
   const uniqueSubcategories = [...new Set(data.map(row => row.category).filter(Boolean))];
@@ -361,13 +367,13 @@ export const TransferReport = React.forwardRef(({ fromDate, toDate, visibleColum
                 filteredData.map((row, index) => (
                   <tr key={index}>
                     {finalColumns.sno && <td className="sno">{index + 1}</td>}
-                    {finalColumns.date && <td className="date">{formatDate(row.transfer_date)}</td>}
-                    {finalColumns.item && <td className="item">{row.item_name || '—'}</td>}
-                    {finalColumns.category && <td className="category">{row.category || '—'}</td>}
-                    {finalColumns.received_fr && <td className="received_fr">{row.received_fr || '—'}</td>}
-                    {finalColumns.qty_received && <td className="qty">{row.qty_received || 0}</td>}
-                    {finalColumns.issued_to && <td className="issued_to">{row.issued_to || '—'}</td>}
-                    {finalColumns.qty_issued && <td className="qty">{row.qty_issued || 0}</td>}
+                    {finalColumns.date && <td className="date">{editable ? reportCell(row, 'transfer_date', row.transfer_date) : formatDate(row.transfer_date)}</td>}
+                    {finalColumns.item && <td className="item">{reportCell(row, 'item_name', row.item_name)}</td>}
+                    {finalColumns.category && <td className="category">{reportCell(row, 'category', row.category)}</td>}
+                    {finalColumns.received_fr && <td className="received_fr">{reportCell(row, 'received_fr', row.received_fr)}</td>}
+                    {finalColumns.qty_received && <td className="qty">{reportCell(row, 'qty_received', row.qty_received || 0, 'right')}</td>}
+                    {finalColumns.issued_to && <td className="issued_to">{reportCell(row, 'issued_to', row.issued_to)}</td>}
+                    {finalColumns.qty_issued && <td className="qty">{reportCell(row, 'qty_issued', row.qty_issued || 0, 'right')}</td>}
                   </tr>
                 ))
               ) : (

@@ -61,7 +61,9 @@ router.get('/availablestock', async (req, res) => {
         i.unit,
         b.batchQuantity,
         b.unvaluedQuantity,
-        b.valuedAmount
+        b.valuedAmount,
+        rvo.price,
+        rvo.total
       ORDER BY i.category, i.item_name;
     `;
 

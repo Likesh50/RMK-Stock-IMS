@@ -27,6 +27,7 @@ import PrintProductStock from "./Components/PrintProductStock.jsx";
 import PrintNetReport from "./Components/PrintNetReport.jsx";
 import PrintAvailableStock from "./Components/PrintAvailableStock.jsx";
 import ComparativeAvailableStockReport from "./Components/ComparativeAvailableStockReport.jsx";
+import EditReports from "./Components/EditReports.jsx";
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -56,6 +57,7 @@ function App() {
             <Route path="available" element={<PrintAvailableStock />} />
             <Route path="editpurchase" element={<EditPurchase />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="edit-reports/*" element={<EditReports />} />
             <Route path="add" element={<AddItems />} />
             <Route path="expiry" element={<ExpiryItems />} />
             <Route path="ordertoplace" element={<OrderToPlace />} />

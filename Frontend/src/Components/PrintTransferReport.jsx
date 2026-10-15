@@ -91,6 +91,7 @@ const ColumnSelector = styled.div`
 const PrintTransferReport = () => {
   const reportRef = useRef();
   const location = useLocation();
+  const editable = location.pathname.startsWith('/dashboard/edit-reports/');
   const { fromDate, toDate } = location.state || {};
 
   const [visibleColumns, setVisibleColumns] = useState({
@@ -168,6 +169,7 @@ const PrintTransferReport = () => {
           fromDate={fromDate}
           toDate={toDate}
           visibleColumns={visibleColumns}
+          editable={editable}
         />
       </ReportContainer>
     </Container>

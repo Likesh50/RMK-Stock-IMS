@@ -86,6 +86,7 @@ const ExportButton = styled.button`
 const PrintNetReport = () => {
   const reportRef = useRef();
   const location = useLocation();
+  const editable = location.pathname.startsWith('/dashboard/edit-reports/');
   const { fromDate, toDate } = location.state || {};
 
   const handleExport = () => {
@@ -125,7 +126,7 @@ const PrintNetReport = () => {
 
       <ReportContainer>
         {/* forwardRef required in ItemMovementReport for this to work */}
-        <ItemMovementReport ref={reportRef} fromDate={fromDate} toDate={toDate} />
+        <ItemMovementReport ref={reportRef} fromDate={fromDate} toDate={toDate} editable={editable} />
       </ReportContainer>
     </Test>
   );

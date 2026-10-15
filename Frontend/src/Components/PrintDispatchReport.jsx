@@ -99,6 +99,7 @@ const ColumnSelector = styled.div`
 const PrintDispatchReport = () => {
   const reportRef = useRef();
   const location = useLocation();
+  const editable = location.pathname.startsWith('/dashboard/edit-reports/');
   const { fromDate, toDate } = location.state || {};
 
   // default: all columns visible
@@ -219,6 +220,7 @@ const PrintDispatchReport = () => {
           fromDate={fromDate}
           toDate={toDate}
           visibleColumns={visibleColumns}
+          editable={editable}
         />
       </ReportContainer>
     </Test>

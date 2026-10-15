@@ -143,7 +143,7 @@ const ReportCard = ({ title, route, fromDate, toDate, setFromDate, setToDate }) 
   );
 };
 
-const Reports = () => {
+const Reports = ({ editMode = false }) => {
   // Three separate pairs of state for each card!
   const [purchaseFromDate, setPurchaseFromDate] = useState(null);
   const [purchaseToDate, setPurchaseToDate] = useState(null);
@@ -160,12 +160,12 @@ const Reports = () => {
   return (
     <>
       <ReportsContainer>
-        <ReportsHeader>REPORTS</ReportsHeader>
+        <ReportsHeader>{editMode ? 'EDIT REPORTS' : 'REPORTS'}</ReportsHeader>
         <InvertedTriangleContainer>
           <TopRow>
             <ReportCard
               title="PURCHASE"
-              route="/dashboard/reports/purchase-report"
+              route={`/dashboard/${editMode ? 'edit-reports' : 'reports'}/purchase-report`}
               fromDate={purchaseFromDate}
               toDate={purchaseToDate}
               setFromDate={setPurchaseFromDate}
@@ -173,7 +173,7 @@ const Reports = () => {
             />
             <ReportCard
               title="DISPATCH"
-              route="/dashboard/reports/dispatch-report"
+              route={`/dashboard/${editMode ? 'edit-reports' : 'reports'}/dispatch-report`}
               fromDate={dispatchFromDate}
               toDate={dispatchToDate}
               setFromDate={setDispatchFromDate}
@@ -185,7 +185,7 @@ const Reports = () => {
           <TopRow>
             <ReportCard
               title="TRANSFER"
-              route="/dashboard/reports/transfer-report"
+              route={`/dashboard/${editMode ? 'edit-reports' : 'reports'}/transfer-report`}
               fromDate={transferFromDate}
               toDate={transferToDate}
               setFromDate={setTransferFromDate}
@@ -193,7 +193,7 @@ const Reports = () => {
             />
             <ReportCard
               title="NET REPORT"
-              route="/dashboard/reports/net-report"
+              route={`/dashboard/${editMode ? 'edit-reports' : 'reports'}/net-report`}
               fromDate={netFromDate}
               toDate={netToDate}
               setFromDate={setNetFromDate}

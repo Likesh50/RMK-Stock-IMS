@@ -100,6 +100,7 @@ const ColumnSelector = styled.div`
 const PrintPurchaseReport = () => {
   const reportRef = useRef();
   const location = useLocation();
+  const editable = location.pathname.startsWith('/dashboard/edit-reports/');
   const { fromDate, toDate } = location.state || {};
 
   // columns state (default all true)
@@ -197,7 +198,7 @@ const PrintPurchaseReport = () => {
 
       <ReportContainer>
         {/* Pass visibleColumns to PurchaseReport */}
-        <PurchaseReport ref={reportRef} fromDate={fromDate} toDate={toDate} visibleColumns={visibleColumns} />
+          <PurchaseReport ref={reportRef} fromDate={fromDate} toDate={toDate} visibleColumns={visibleColumns} editable={editable} />
       </ReportContainer>
     </Test>
   );

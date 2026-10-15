@@ -1,6 +1,131 @@
 const express = require('express');
 const db = require('../db'); // Assuming your database connection is set up in db.js
 const router = express.Router();
+const jwt = require('jsonwebtoken');
+const REPORT_JWT_SECRET = 'rmkecmessmanagement-IT-2022-2026';
+
+router.put('/updateRecord', async (req, res) => {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '') || req.body.token;
+  let identity;
+  try { identity = jwt.verify(token, REPORT_JWT_SECRET); }
+  catch { return res.status(401).json({ success: false, message: 'Please sign in again.' }); }
+  if (identity.uname !== 'admin') return res.status(403).json({ success: false, message: 'Admin access required.' });
+
+  const { source_type: source, record_id: recordId, values = {} } = req.body;
+  const config = {
+    purchase: { table: 'purchases', id: 'purchase_id', fields: { quantity: 'quantity', rate: 'rate', price: 'rate', amount: 'amount', invoice_no: 'invoice_no', purchase_date: 'purchase_date', date: 'purchase_date' } },
+    dispatch: { table: 'dispatch', id: 'dispatch_id', fields: { quantity: 'quantity', available_quantity: 'remaining_quantity', dispatch_date: 'dispatch_date', date: 'dispatch_date', sticker_no: 'sticker_no', receiver: 'receiver', incharge: 'incharge' } },
+    transfer: { table: 'transfer', id: 'transfer_id', fields: { quantity: 'quantity', qty_received: 'quantity', qty_issued: 'quantity', date: 'date', transfer_date: 'date', purchase_date: 'date', dispatch_date: 'date', from_location_id: 'from_location_id', to_location_id: 'to_location_id' } }
+  }[source];
+  if (!config || !Number.isInteger(Number(recordId)) || !values || typeof values !== 'object') {
+    return res.status(400).json({ success: false, message: 'Invalid report record.' });
+  }
+  const relatedFields = {
+    purchase: ['item_name', 'category', 'sub_category', 'shop_name', 'gst_others'],
+    dispatch: ['item_name', 'category', 'sub_category', 'block_name'],
+    transfer: ['item_name', 'category', 'sub_category', 'received_fr', 'issued_to', 'block_name', 'shop_name']
+  }[source];
+  const acceptedFields = new Set([...Object.keys(config.fields), ...relatedFields, 'price', 'rate', 'amount', 'total', 'item_id', 'shop_id', 'block_id', 'location_id', 'invoice_no']);
+  const unsupportedField = Object.keys(values).find(field => !acceptedFields.has(field));
+  if (unsupportedField) {
+    return res.status(400).json({ success: false, message: `The ${unsupportedField} column is calculated or cannot be updated for this report row.` });
+  }
+  const set = [];
+  const params = [];
+  for (const field of Object.keys(config.fields)) {
+    if (!Object.prototype.hasOwnProperty.call(values, field)) continue;
+    set.push(`\`${config.fields[field]}\` = ?`);
+    params.push(values[field] === '' ? null : values[field]);
+  }
+  const relatedChange = ['item_name', 'category', 'sub_category', 'shop_name', 'block_name', 'price', 'rate', 'amount', 'total', 'gst_others', 'received_fr', 'issued_to'].some(field => Object.hasOwn(values, field));
+  if (!set.length && !relatedChange) return res.status(400).json({ success: false, message: 'No editable database fields were provided.' });
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    if (set.length) {
+      const [result] = await connection.query(`UPDATE ${config.table} SET ${set.join(', ')} WHERE ${config.id} = ?`, [...params, Number(recordId)]);
+      if (!result.affectedRows && !relatedChange) {
+        await connection.rollback();
+        return res.status(404).json({ success: false, message: 'Report record was not found.' });
+      }
+    }
+    const itemFields = ['item_name', 'category', 'sub_category'].filter(field => Object.hasOwn(values, field));
+    if (itemFields.length && Number.isInteger(Number(values.item_id))) {
+      await connection.query(`UPDATE items SET ${itemFields.map(field => `\`${field}\` = ?`).join(', ')} WHERE item_id = ?`, [...itemFields.map(field => values[field]), Number(values.item_id)]);
+    }
+    if (Object.hasOwn(values, 'shop_name') && values.shop_id != null && Number.isInteger(Number(values.shop_id))) {
+      await connection.query('UPDATE shops SET name = ? WHERE id = ?', [values.shop_name, Number(values.shop_id)]);
+    }
+    if (source === 'purchase' && Object.hasOwn(values, 'shop_name') && !Number.isInteger(Number(values.shop_id))) {
+      const [purchaseRows] = await connection.query('SELECT shop_id FROM purchases WHERE purchase_id = ?', [Number(recordId)]);
+      if (purchaseRows.length) await connection.query('UPDATE shops SET name = ? WHERE id = ?', [values.shop_name, purchaseRows[0].shop_id]);
+    }
+    if (source === 'dispatch' && Object.hasOwn(values, 'block_name') && values.block_id != null && Number.isInteger(Number(values.block_id))) {
+      await connection.query('UPDATE blocks SET block_name = ? WHERE block_id = ?', [values.block_name, Number(values.block_id)]);
+    }
+    if (source === 'dispatch' && Object.hasOwn(values, 'block_name') && !Number.isInteger(Number(values.block_id))) {
+      const [dispatchRows] = await connection.query('SELECT block_id FROM dispatch WHERE dispatch_id = ?', [Number(recordId)]);
+      if (dispatchRows.length && dispatchRows[0].block_id) await connection.query('UPDATE blocks SET block_name = ? WHERE block_id = ?', [values.block_name, dispatchRows[0].block_id]);
+    }
+    if (source === 'purchase' && Object.hasOwn(values, 'gst_others') && values.invoice_no && values.location_id) {
+      await connection.query('UPDATE purchase_invoice_charges SET other_charges = ? WHERE invoice_no = ? AND location_id = ?', [values.gst_others, values.invoice_no, values.location_id]);
+    }
+    if (source === 'transfer') {
+      if (Object.hasOwn(values, 'shop_name')) {
+        const isDestination = /^TRANSFER to\s+/i.test(String(values.shop_name));
+        const locationName = String(values.shop_name).replace(/^TRANSFER (?:to|from)\s+/i, '').trim();
+        const [matches] = await connection.query('SELECT location_id FROM locations WHERE location_name = ? LIMIT 1', [locationName]);
+        if (!matches.length) {
+          await connection.rollback();
+          return res.status(400).json({ success: false, message: `Unknown location: ${locationName}` });
+        }
+        await connection.query(`UPDATE transfer SET ${isDestination ? 'to_location_id' : 'from_location_id'} = ? WHERE transfer_id = ?`, [matches[0].location_id, Number(recordId)]);
+      }
+      if (Object.hasOwn(values, 'block_name')) {
+        const isDestination = /^TRANSFER to\s+/i.test(String(values.block_name));
+        const locationName = String(values.block_name).replace(/^TRANSFER (?:to|from)\s+/i, '').trim();
+        const [matches] = await connection.query('SELECT location_id FROM locations WHERE location_name = ? LIMIT 1', [locationName]);
+        if (!matches.length) {
+          await connection.rollback();
+          return res.status(400).json({ success: false, message: `Unknown location: ${locationName}` });
+        }
+        const locationColumn = isDestination ? 'to_location_id' : 'from_location_id';
+        await connection.query(`UPDATE transfer SET ${locationColumn} = ? WHERE transfer_id = ?`, [matches[0].location_id, Number(recordId)]);
+      }
+      for (const [label, column] of [['received_fr', 'from_location_id'], ['issued_to', 'to_location_id']]) {
+        if (!Object.hasOwn(values, label)) continue;
+        const [matches] = await connection.query('SELECT location_id FROM locations WHERE location_name = ? LIMIT 1', [values[label]]);
+        if (!matches.length) {
+          await connection.rollback();
+          return res.status(400).json({ success: false, message: `Unknown location: ${values[label]}` });
+        }
+        await connection.query(`UPDATE transfer SET ${column} = ? WHERE transfer_id = ?`, [matches[0].location_id, Number(recordId)]);
+      }
+    }
+    const overrideFields = ['price', 'rate', 'amount', 'total'].filter(field => Object.hasOwn(values, field));
+    if (overrideFields.length) {
+      const overrideKey = `${source}:${Number(recordId)}`;
+      const columns = overrideFields.map(field => field === 'rate' ? 'price' : field);
+      const uniqueColumns = [...new Set(columns)];
+      const insertColumns = ['override_key', ...uniqueColumns];
+      const insertValues = [overrideKey, ...uniqueColumns.map(column => {
+        const field = column === 'price' && Object.hasOwn(values, 'rate') ? 'rate' : column;
+        return values[field];
+      })];
+      const updateSql = uniqueColumns.map(column => `\`${column}\` = VALUES(\`${column}\`)`).join(', ');
+      await connection.query(`INSERT INTO report_value_overrides (${insertColumns.map(column => `\`${column}\``).join(', ')}) VALUES (${insertColumns.map(() => '?').join(', ')}) ON DUPLICATE KEY UPDATE ${updateSql}`, insertValues);
+    }
+    await connection.commit();
+    res.json({ success: true, message: 'Report record updated.' });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Error updating report record:', error);
+    res.status(500).json({ success: false, message: 'Failed to update report record.' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
 
 router.get('/productStock', async (req, res) => {
   try {
@@ -66,6 +191,9 @@ router.get('/dispatchReport', async (req, res) => {
     // ---- DISPATCH SELECT ----
     let dispatchSelect = `
       SELECT 
+        d.dispatch_id,
+        d.item_id,
+        d.block_id,
         i.item_name,
         i.category,
         i.sub_category,
@@ -95,6 +223,7 @@ router.get('/dispatchReport', async (req, res) => {
         END) AS total,
         d.valuation_status,
 
+        NULL AS transfer_id,
         'dispatch' AS source_type,
         CONCAT('dispatch:', d.dispatch_id) AS override_key
 
@@ -123,6 +252,9 @@ router.get('/dispatchReport', async (req, res) => {
     // ---- TRANSFER SELECT ----
     let transferSelect = `
       SELECT
+        NULL AS dispatch_id,
+        t.item_id,
+        NULL AS block_id,
         i.item_name,
         i.category,
         i.sub_category,
@@ -151,6 +283,7 @@ router.get('/dispatchReport', async (req, res) => {
           THEN 'valued'
           ELSE 'unvalued'
         END AS valuation_status,
+        t.transfer_id,
         'transfer' AS source_type,
         CONCAT('transfer:', t.transfer_id) AS override_key
       FROM transfer t
@@ -217,6 +350,9 @@ router.get('/dispatchReport', async (req, res) => {
 
     // ---- Normalize results ----
     const normalizedRows = rows.map(r => ({
+      dispatch_id: r.dispatch_id,
+      item_id: r.item_id,
+      block_id: r.block_id,
       item_name: r.item_name,
       category: r.category,
       sub_category: r.sub_category,
@@ -225,6 +361,7 @@ router.get('/dispatchReport', async (req, res) => {
       price: r.price == null ? null : Number(r.price),
       total: r.total == null ? null : Number(r.total),
       valuation_status: r.valuation_status || 'legacy_unallocated',
+      transfer_id: r.transfer_id || null,
       dispatch_date: r.dispatch_date,
       block_name: r.block_name || null,
       sticker_no: r.sticker_no || null,
@@ -807,6 +944,7 @@ router.get('/purchaseReport', async (req, res) => {
 
     let purchaseSelect = `
       SELECT
+        i.item_id,
         i.item_name,
         i.category,
         i.sub_category,
@@ -830,6 +968,7 @@ router.get('/purchaseReport', async (req, res) => {
         )) AS total,
 
         s.name AS shop_name,
+        s.id AS shop_id,
         p.purchase_date,
         p.location_id,
         NULL AS from_location_id,
@@ -859,6 +998,7 @@ router.get('/purchaseReport', async (req, res) => {
 
     let transferSelect = `
       SELECT
+        t.item_id,
         i.item_name,
         i.category,
         i.sub_category,
@@ -870,6 +1010,7 @@ router.get('/purchaseReport', async (req, res) => {
         0 AS gst_others,
         COALESCE(tvo.total, 0) AS total,
         CONCAT("TRANSFER from ", loc.location_name) AS shop_name,
+        NULL AS shop_id,
         t.date AS purchase_date,
         t.to_location_id AS location_id,
         t.from_location_id,
@@ -945,6 +1086,8 @@ router.get('/purchaseReport', async (req, res) => {
       }
 
       return {
+        purchase_id: r.purchase_id,
+        item_id: r.item_id,
         item_name: r.item_name,
         category: r.category,
         sub_category: r.sub_category,
@@ -956,6 +1099,7 @@ router.get('/purchaseReport', async (req, res) => {
         gst_others: Number(gstOthers.toFixed(2)),
         total: Number(total.toFixed(2)),
         shop_name: r.shop_name || null,
+        shop_id: r.shop_id,
         purchase_date: r.purchase_date,
         location_id: r.location_id,
 
@@ -1003,6 +1147,9 @@ router.get('/transferReport', async (req, res) => {
     let query = `
       SELECT
         t.transfer_id,
+        t.item_id,
+        t.from_location_id,
+        t.to_location_id,
         t.date AS transfer_date,
         i.item_name,
         i.category,
@@ -1053,6 +1200,11 @@ router.get('/transferReport', async (req, res) => {
 });
 
 router.post('/valueOverride', async (req, res) => {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '') || req.body.token;
+  let identity;
+  try { identity = jwt.verify(token, REPORT_JWT_SECRET); }
+  catch { return res.status(401).json({ success: false, message: 'Please sign in again.' }); }
+  if (identity.uname !== 'admin') return res.status(403).json({ success: false, message: 'Admin access required.' });
   const { override_key: overrideKey, field, value } = req.body;
   const allowedFields = new Set(['price', 'amount', 'total']);
   const validKey = /^(purchase|dispatch|transfer):\d+$|^(stock|comparative):\d+:\d+(?:,\d+)*$/;

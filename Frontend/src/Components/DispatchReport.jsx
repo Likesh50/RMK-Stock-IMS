@@ -4,6 +4,7 @@ import Axios from 'axios';
 import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
 import EditableReportValue from './EditableReportValue';
+import EditableReportCell from './EditableReportCell';
 
 
 
@@ -373,7 +374,7 @@ const MetaInfo = styled.div`
  *
  * Missing keys default to true.
  */
-export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColumns = {} }, ref) => {
+export const DispatchReport = React.forwardRef(({ fromDate, toDate, visibleColumns = {}, editable = false }, ref) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -539,6 +540,12 @@ const selectedLocationDisplay =
     if (!Number.isFinite(num)) return 'N/A';
     return num.toFixed(2);
   };
+
+  const reportCell = (row, field, value, align = 'left') => editable
+    ? <EditableReportCell value={value} sourceType={row.source_type || 'dispatch'} recordId={row.dispatch_id || row.transfer_id} field={field} align={align} itemId={row.item_id}
+        extraValues={{ block_id: row.block_id }}
+        onSaved={saved => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, [field]: saved } : item))} />
+    : (value ?? '—');
 
   // Institution name resolution:
   const locationnameKey = localStorage.getItem('locationname') || '';
@@ -941,35 +948,35 @@ const selectedLocationDisplay =
               {rows.map((row, index) => (
                 <tr key={index}>
                   {finalColumns.sno && <td>{index + 1}</td>}
-                  {finalColumns.dispatchDate && <td>{formatDate(row.dispatch_date)}</td>}
-                  {finalColumns.item && <td>{row.item_name}</td>}
-                  {finalColumns.category && <td>{row.category}</td>}
-                  {finalColumns.quantity && <td>{row.quantity}</td>}
+                  {finalColumns.dispatchDate && <td>{editable ? reportCell(row, 'dispatch_date', row.dispatch_date) : formatDate(row.dispatch_date)}</td>}
+                  {finalColumns.item && <td>{reportCell(row, 'item_name', row.item_name)}</td>}
+                  {finalColumns.category && <td>{reportCell(row, 'category', row.category)}</td>}
+                  {finalColumns.quantity && <td>{reportCell(row, 'quantity', row.quantity, 'right')}</td>}
                   {finalColumns.available_quantity && (
-                    <td>{row.available_quantity ?? 0}</td>
+                    <td>{reportCell(row, 'available_quantity', row.available_quantity ?? 0, 'right')}</td>
                   )}
-                  {finalColumns.block_name && <td>{row.block_name}</td>}
-                  {finalColumns.sticker_no && <td>{row.sticker_no}</td>}
-                  {finalColumns.receiver && <td>{row.receiver}</td>}
-                  {finalColumns.incharge && <td>{row.incharge}</td>}
+                  {finalColumns.block_name && <td>{reportCell(row, 'block_name', row.block_name)}</td>}
+                  {finalColumns.sticker_no && <td>{reportCell(row, 'sticker_no', row.sticker_no)}</td>}
+                  {finalColumns.receiver && <td>{reportCell(row, 'receiver', row.receiver)}</td>}
+                  {finalColumns.incharge && <td>{reportCell(row, 'incharge', row.incharge)}</td>}
                   {finalColumns.price && (
                     <td>
-                      <EditableReportValue
+                      {editable ? reportCell(row, 'price', row.price, 'right') : <EditableReportValue
                         value={row.price}
                         overrideKey={row.override_key}
                         field="price"
                         onSaved={value => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, price: value } : item))}
-                      />
+                      />}
                     </td>
                   )}
                   {finalColumns.total && (
                     <td>
-                      <EditableReportValue
+                      {editable ? reportCell(row, 'total', row.total, 'right') : <EditableReportValue
                         value={row.total}
                         overrideKey={row.override_key}
                         field="total"
                         onSaved={value => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, total: value } : item))}
-                      />
+                      />}
                     </td>
                   )}
                 </tr>

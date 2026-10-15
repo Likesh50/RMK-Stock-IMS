@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 
 function EditableReportValue({ value, overrideKey, field, onSaved }) {
+  const location = useLocation();
   const [draft, setDraft] = useState(value == null ? '' : String(value));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -9,6 +11,10 @@ function EditableReportValue({ value, overrideKey, field, onSaved }) {
   useEffect(() => {
     setDraft(value == null ? '' : String(value));
   }, [value]);
+
+  if (location.pathname.startsWith('/dashboard/reports/')) {
+    return <span>{value == null ? 'N/A' : value}</span>;
+  }
 
   const saveValue = async () => {
     if (!overrideKey || draft.trim() === '') return;
@@ -26,7 +32,7 @@ function EditableReportValue({ value, overrideKey, field, onSaved }) {
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_RMK_MESS_URL}/report/valueOverride`,
-        { override_key: overrideKey, field, value: numericValue }
+        { override_key: overrideKey, field, value: numericValue, token: window.sessionStorage.getItem('token') }
       );
       onSaved?.(response.data.value);
       setSaveError(false);
