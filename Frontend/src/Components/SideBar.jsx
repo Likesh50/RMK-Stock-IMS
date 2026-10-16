@@ -107,6 +107,14 @@ const SideBar = () => {
             Reports
           </Link>
         </SidebarItem>
+        {window.sessionStorage.getItem('uname') === 'admin' && (
+          <SidebarItem className={isActive('/dashboard/edit-reports')}>
+            <Link to="edit-reports">
+              <img src={reports} width="40px" height="40px" alt="Edit Reports" />
+              Edit Reports
+            </Link>
+          </SidebarItem>
+        )}
         {role!=="Viewer" && (<SidebarItem className={isActive('/dashboard/add')}>
           <Link to="add">
             <img src={add} width="40px" height="40px" alt="Add Items" />

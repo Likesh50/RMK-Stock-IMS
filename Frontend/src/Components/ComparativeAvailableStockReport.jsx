@@ -185,6 +185,7 @@ const ComparativeAvailableStockReport = () => {
   const reportRef = useRef(null);
   const [reportRows, setReportRows] = useState([]);
   const [selectedLocations, setSelectedLocations] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [locationTotals, setLocationTotals] = useState({});
@@ -206,6 +207,7 @@ const ComparativeAvailableStockReport = () => {
     const locationIds = storedIds ? JSON.parse(storedIds) : [];
     const storedLocationNames = storedNames ? JSON.parse(storedNames) : [];
     const selectedCategories = storedCategories ? JSON.parse(storedCategories) : [];
+    setSelectedCategories(Array.isArray(selectedCategories) ? selectedCategories : []);
 
     if (!Array.isArray(locationIds) || locationIds.length === 0) {
       setError('Select one or more locations on Available Stock and reopen the Comparative Report.');
@@ -293,14 +295,16 @@ const ComparativeAvailableStockReport = () => {
   const printLabel = `Comparative Report Available Stock`;
 
   const sortedRows = useMemo(() => {
-    return [...reportRows].sort((a, b) => {
+    return reportRows
+      .filter(row => selectedCategories.length === 0 || selectedCategories.includes(row.category))
+      .sort((a, b) => {
       const cat = (a.category || '').toString().localeCompare((b.category || '').toString());
       if (cat !== 0) return cat;
       const sub = (a.sub_category || '').toString().localeCompare((b.sub_category || '').toString());
       if (sub !== 0) return sub;
       return (a.item_name || '').toString().localeCompare((b.item_name || '').toString());
     });
-  }, [reportRows]);
+  }, [reportRows, selectedCategories]);
 
   return (
     <PageWrapper>

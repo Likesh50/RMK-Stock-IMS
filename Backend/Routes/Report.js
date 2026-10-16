@@ -617,6 +617,7 @@ router.get('/itemMovement', async (req, res) => {
       }
 
       return {
+        date: r.dt,
         item_name: r.item_name,
         category: r.category,
         sub_category: r.sub_category,
