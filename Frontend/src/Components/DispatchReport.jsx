@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import Axios from 'axios';
 import Logo from '../assets/Logo.png';
 import { HashLoader } from 'react-spinners';
-import EditableReportValue from './EditableReportValue';
 import EditableReportCell from './EditableReportCell';
 
 
@@ -546,7 +545,6 @@ const selectedLocationDisplay =
         extraValues={{ block_id: row.block_id }}
         onSaved={saved => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, [field]: saved } : item))} />
     : (value ?? '—');
-
   // Institution name resolution:
   const locationnameKey = localStorage.getItem('locationname') || '';
   const institutionName = selectedLocationNameFromSession || (institutionMap[locationnameKey] || locationnameKey);
@@ -961,22 +959,12 @@ const selectedLocationDisplay =
                   {finalColumns.incharge && <td>{reportCell(row, 'incharge', row.incharge)}</td>}
                   {finalColumns.price && (
                     <td>
-                      {editable ? reportCell(row, 'price', row.price, 'right') : <EditableReportValue
-                        value={row.price}
-                        overrideKey={row.override_key}
-                        field="price"
-                        onSaved={value => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, price: value } : item))}
-                      />}
+                      {editable ? reportCell(row, 'price', row.price, 'right') : formatCurrency(row.price)}
                     </td>
                   )}
                   {finalColumns.total && (
                     <td>
-                      {editable ? reportCell(row, 'total', row.total, 'right') : <EditableReportValue
-                        value={row.total}
-                        overrideKey={row.override_key}
-                        field="total"
-                        onSaved={value => setData(current => current.map(item => item.override_key === row.override_key ? { ...item, total: value } : item))}
-                      />}
+                      {editable ? reportCell(row, 'total', row.total, 'right') : formatCurrency(row.total)}
                     </td>
                   )}
                 </tr>

@@ -23,7 +23,7 @@ const EditableReportCell = ({ value, sourceType, recordId, field, onSaved, align
     } finally { setSaving(false); }
   };
   return <input
-    value={draft} disabled={saving} aria-label={`Edit ${field}`} aria-invalid={failed}
+    value={draft} placeholder={value == null ? 'N/A' : undefined} disabled={saving} aria-label={`Edit ${field}`} aria-invalid={failed}
     title={failed ? 'Could not save this value' : 'Edit and leave the field to save'}
     onChange={event => { setDraft(event.target.value); setFailed(false); }}
     onBlur={save}

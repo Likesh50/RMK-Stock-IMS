@@ -212,7 +212,20 @@ router.get('/dispatchReport', async (req, res) => {
             AND COALESCE(a.unvalued_allocations, 0) = 0
           THEN a.allocated_amount / NULLIF(d.quantity, 0)
           ELSE NULL
-        END) AS price,
+        END, (
+          SELECT p.rate
+          FROM purchases p
+          WHERE p.item_id = d.item_id
+            AND p.location_id = d.location_id
+          ORDER BY p.purchase_date DESC, p.purchase_id DESC
+          LIMIT 1
+        ), (
+          SELECT p.rate
+          FROM purchases p
+          WHERE p.item_id = d.item_id
+          ORDER BY p.purchase_date DESC, p.purchase_id DESC
+          LIMIT 1
+        )) AS price,
 
         COALESCE(aOverride.total, CASE
           WHEN d.valuation_status = 'valued'
@@ -220,8 +233,31 @@ router.get('/dispatchReport', async (req, res) => {
             AND COALESCE(a.unvalued_allocations, 0) = 0
           THEN a.allocated_amount
           ELSE NULL
-        END) AS total,
-        d.valuation_status,
+        END, d.quantity * (
+          SELECT p.rate
+          FROM purchases p
+          WHERE p.item_id = d.item_id
+            AND p.location_id = d.location_id
+          ORDER BY p.purchase_date DESC, p.purchase_id DESC
+          LIMIT 1
+        ), d.quantity * (
+          SELECT p.rate
+          FROM purchases p
+          WHERE p.item_id = d.item_id
+          ORDER BY p.purchase_date DESC, p.purchase_id DESC
+          LIMIT 1
+        )) AS total,
+        CASE
+          WHEN aOverride.price IS NOT NULL OR aOverride.total IS NOT NULL THEN 'overridden'
+          WHEN d.valuation_status = 'valued'
+            AND COALESCE(a.allocated_quantity, 0) = d.quantity
+            AND COALESCE(a.unvalued_allocations, 0) = 0 THEN 'valued'
+          WHEN EXISTS (
+            SELECT 1 FROM purchases p
+            WHERE p.item_id = d.item_id
+          ) THEN 'estimated_latest_purchase'
+          ELSE COALESCE(d.valuation_status, 'legacy_unallocated')
+        END AS valuation_status,
 
         NULL AS transfer_id,
         'dispatch' AS source_type,
@@ -270,17 +306,32 @@ router.get('/dispatchReport', async (req, res) => {
             AND COALESCE(a.unvalued_allocations, 0) = 0
           THEN a.allocated_amount / NULLIF(t.quantity, 0)
           ELSE NULL
-        END) AS price,
+        END, (
+          SELECT p.rate
+          FROM purchases p
+          WHERE p.item_id = t.item_id
+          ORDER BY p.purchase_date DESC, p.purchase_id DESC
+          LIMIT 1
+        )) AS price,
         COALESCE(tOverride.total, CASE
           WHEN COALESCE(a.allocated_quantity, 0) = t.quantity
             AND COALESCE(a.unvalued_allocations, 0) = 0
           THEN a.allocated_amount
           ELSE NULL
-        END) AS total,
+        END, t.quantity * (
+          SELECT p.rate
+          FROM purchases p
+          WHERE p.item_id = t.item_id
+          ORDER BY p.purchase_date DESC, p.purchase_id DESC
+          LIMIT 1
+        )) AS total,
         CASE
+          WHEN tOverride.price IS NOT NULL OR tOverride.total IS NOT NULL THEN 'overridden'
           WHEN COALESCE(a.allocated_quantity, 0) = t.quantity
             AND COALESCE(a.unvalued_allocations, 0) = 0
           THEN 'valued'
+          WHEN EXISTS (SELECT 1 FROM purchases p WHERE p.item_id = t.item_id)
+          THEN 'estimated_latest_purchase'
           ELSE 'unvalued'
         END AS valuation_status,
         t.transfer_id,
