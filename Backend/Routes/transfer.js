@@ -61,7 +61,7 @@ router.post('/createTransfer', async (req, res) => {
       }
 
       const [sourceBatches] = await connection.query(
-        `SELECT batch_id, batch_type, purchase_id,
+        `SELECT batch_id, batch_type, purchase_id, valuation_status,
           DATE_FORMAT(acquired_date, '%Y-%m-%d') AS acquired_date,
           DATE_FORMAT(available_date, '%Y-%m-%d') AS available_date,
           remaining_quantity, unit_rate

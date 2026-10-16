@@ -1,8 +1,11 @@
 const roundMoney = value => Number(Number(value).toFixed(2));
 
 const compareBatches = (left, right) => {
-  if (left.batch_type === 'legacy' && right.batch_type !== 'legacy') return -1;
-  if (right.batch_type === 'legacy' && left.batch_type !== 'legacy') return 1;
+  // Prefer batches with a known, valid cost so a migrated opening-stock batch
+  // with no historical valuation cannot mask a usable purchase valuation.
+  const leftIsValued = left.unit_rate != null && (!left.valuation_status || left.valuation_status === 'valued');
+  const rightIsValued = right.unit_rate != null && (!right.valuation_status || right.valuation_status === 'valued');
+  if (leftIsValued !== rightIsValued) return leftIsValued ? -1 : 1;
 
   const dateDifference = String(left.acquired_date).localeCompare(String(right.acquired_date));
   if (dateDifference !== 0) return dateDifference;
