@@ -217,17 +217,19 @@ router.get('/dispatchReport', async (req, res) => {
           FROM purchases p
           WHERE p.item_id = d.item_id
             AND p.location_id = d.location_id
+            AND p.rate IS NOT NULL
           ORDER BY p.purchase_date DESC, p.purchase_id DESC
           LIMIT 1
         ), (
           SELECT p.rate
           FROM purchases p
           WHERE p.item_id = d.item_id
+            AND p.rate IS NOT NULL
           ORDER BY p.purchase_date DESC, p.purchase_id DESC
           LIMIT 1
         )) AS price,
 
-        COALESCE(aOverride.total, CASE
+        COALESCE(aOverride.total, d.quantity * aOverride.price, CASE
           WHEN d.valuation_status = 'valued'
             AND COALESCE(a.allocated_quantity, 0) = d.quantity
             AND COALESCE(a.unvalued_allocations, 0) = 0
@@ -238,12 +240,14 @@ router.get('/dispatchReport', async (req, res) => {
           FROM purchases p
           WHERE p.item_id = d.item_id
             AND p.location_id = d.location_id
+            AND p.rate IS NOT NULL
           ORDER BY p.purchase_date DESC, p.purchase_id DESC
           LIMIT 1
         ), d.quantity * (
           SELECT p.rate
           FROM purchases p
           WHERE p.item_id = d.item_id
+            AND p.rate IS NOT NULL
           ORDER BY p.purchase_date DESC, p.purchase_id DESC
           LIMIT 1
         )) AS total,
@@ -255,6 +259,7 @@ router.get('/dispatchReport', async (req, res) => {
           WHEN EXISTS (
             SELECT 1 FROM purchases p
             WHERE p.item_id = d.item_id
+              AND p.rate IS NOT NULL
           ) THEN 'estimated_latest_purchase'
           ELSE COALESCE(d.valuation_status, 'legacy_unallocated')
         END AS valuation_status,
@@ -310,10 +315,11 @@ router.get('/dispatchReport', async (req, res) => {
           SELECT p.rate
           FROM purchases p
           WHERE p.item_id = t.item_id
+            AND p.rate IS NOT NULL
           ORDER BY p.purchase_date DESC, p.purchase_id DESC
           LIMIT 1
         )) AS price,
-        COALESCE(tOverride.total, CASE
+        COALESCE(tOverride.total, t.quantity * tOverride.price, CASE
           WHEN COALESCE(a.allocated_quantity, 0) = t.quantity
             AND COALESCE(a.unvalued_allocations, 0) = 0
           THEN a.allocated_amount
@@ -322,6 +328,7 @@ router.get('/dispatchReport', async (req, res) => {
           SELECT p.rate
           FROM purchases p
           WHERE p.item_id = t.item_id
+            AND p.rate IS NOT NULL
           ORDER BY p.purchase_date DESC, p.purchase_id DESC
           LIMIT 1
         )) AS total,
@@ -330,7 +337,10 @@ router.get('/dispatchReport', async (req, res) => {
           WHEN COALESCE(a.allocated_quantity, 0) = t.quantity
             AND COALESCE(a.unvalued_allocations, 0) = 0
           THEN 'valued'
-          WHEN EXISTS (SELECT 1 FROM purchases p WHERE p.item_id = t.item_id)
+          WHEN EXISTS (
+            SELECT 1 FROM purchases p
+            WHERE p.item_id = t.item_id AND p.rate IS NOT NULL
+          )
           THEN 'estimated_latest_purchase'
           ELSE 'unvalued'
         END AS valuation_status,
@@ -409,8 +419,8 @@ router.get('/dispatchReport', async (req, res) => {
       sub_category: r.sub_category,
       quantity: Number(r.quantity) || 0,
       available_quantity: Number(r.available_quantity) || 0,
-      price: r.price == null ? null : Number(r.price),
-      total: r.total == null ? null : Number(r.total),
+      price: Number(r.price) || 0,
+      total: Number(r.total) || 0,
       valuation_status: r.valuation_status || 'legacy_unallocated',
       transfer_id: r.transfer_id || null,
       dispatch_date: r.dispatch_date,
@@ -423,16 +433,13 @@ router.get('/dispatchReport', async (req, res) => {
     }));
 
     // ---- Calculate Grand Total ----
-    const hasUnvaluedRows = normalizedRows.some(row => row.total == null);
-    const grandTotal = hasUnvaluedRows
-      ? null
-      : normalizedRows.reduce((sum, row) => sum + row.total, 0);
+    const grandTotal = normalizedRows.reduce((sum, row) => sum + row.total, 0);
 
     res.json({
       success: true,
       data: normalizedRows,
-      grandTotal: grandTotal == null ? null : Number(grandTotal.toFixed(2)),
-      valuation_complete: !hasUnvaluedRows
+      grandTotal: Number(grandTotal.toFixed(2)),
+      valuation_complete: normalizedRows.every(row => !['legacy_unallocated', 'unvalued'].includes(row.valuation_status))
     });
   } catch (error) {
     console.error('Error fetching dispatch report:', error);
@@ -492,7 +499,14 @@ router.get('/itemMovement', async (req, res) => {
             AND COALESCE(da.allocated_quantity, 0) = d.quantity
             AND COALESCE(da.unvalued_allocations, 0) = 0
           THEN da.allocated_amount / NULLIF(d.quantity, 0)
-          ELSE NULL
+          ELSE (
+            SELECT p2.rate
+            FROM purchases p2
+            WHERE p2.item_id = d.item_id
+              AND p2.rate IS NOT NULL
+            ORDER BY p2.purchase_date DESC, p2.purchase_id DESC
+            LIMIT 1
+          )
         END AS price,
         NULL AS amount,
         CASE
@@ -500,7 +514,14 @@ router.get('/itemMovement', async (req, res) => {
             AND COALESCE(da.allocated_quantity, 0) = d.quantity
             AND COALESCE(da.unvalued_allocations, 0) = 0
           THEN da.allocated_amount
-          ELSE NULL
+          ELSE d.quantity * (
+            SELECT p2.rate
+            FROM purchases p2
+            WHERE p2.item_id = d.item_id
+              AND p2.rate IS NOT NULL
+            ORDER BY p2.purchase_date DESC, p2.purchase_id DESC
+            LIMIT 1
+          )
         END AS total,
         COALESCE(b.block_name, CONCAT('Dispatch from loc ', d.location_id)) AS source_name,
         d.location_id,
@@ -537,14 +558,28 @@ router.get('/itemMovement', async (req, res) => {
           WHEN COALESCE(ta.allocated_quantity, 0) = t.quantity
             AND COALESCE(ta.unvalued_allocations, 0) = 0
           THEN ta.allocated_amount / NULLIF(t.quantity, 0)
-          ELSE NULL
+          ELSE (
+            SELECT p2.rate
+            FROM purchases p2
+            WHERE p2.item_id = t.item_id
+              AND p2.rate IS NOT NULL
+            ORDER BY p2.purchase_date DESC, p2.purchase_id DESC
+            LIMIT 1
+          )
         END AS price,
         NULL AS amount,
         CASE
           WHEN COALESCE(ta.allocated_quantity, 0) = t.quantity
             AND COALESCE(ta.unvalued_allocations, 0) = 0
           THEN ta.allocated_amount
-          ELSE NULL
+          ELSE t.quantity * (
+            SELECT p2.rate
+            FROM purchases p2
+            WHERE p2.item_id = t.item_id
+              AND p2.rate IS NOT NULL
+            ORDER BY p2.purchase_date DESC, p2.purchase_id DESC
+            LIMIT 1
+          )
         END AS total,
         CONCAT('TRANSFER to ', COALESCE(loc_to.location_name, t.to_location_id)) AS source_name,
         t.from_location_id AS location_id,
@@ -580,14 +615,28 @@ router.get('/itemMovement', async (req, res) => {
           WHEN COALESCE(ta.allocated_quantity, 0) = t.quantity
             AND COALESCE(ta.unvalued_allocations, 0) = 0
           THEN ta.allocated_amount / NULLIF(t.quantity, 0)
-          ELSE NULL
+          ELSE (
+            SELECT p2.rate
+            FROM purchases p2
+            WHERE p2.item_id = t.item_id
+              AND p2.rate IS NOT NULL
+            ORDER BY p2.purchase_date DESC, p2.purchase_id DESC
+            LIMIT 1
+          )
         END AS price,
         NULL AS amount,
         CASE
           WHEN COALESCE(ta.allocated_quantity, 0) = t.quantity
             AND COALESCE(ta.unvalued_allocations, 0) = 0
           THEN ta.allocated_amount
-          ELSE NULL
+          ELSE t.quantity * (
+            SELECT p2.rate
+            FROM purchases p2
+            WHERE p2.item_id = t.item_id
+              AND p2.rate IS NOT NULL
+            ORDER BY p2.purchase_date DESC, p2.purchase_id DESC
+            LIMIT 1
+          )
         END AS total,
         CONCAT('TRANSFER from ', COALESCE(loc_from.location_name, t.from_location_id)) AS source_name,
         t.to_location_id AS location_id,
@@ -621,7 +670,11 @@ router.get('/itemMovement', async (req, res) => {
         movements.quantity,
         COALESCE(overrides.price, movements.price) AS price,
         COALESCE(overrides.amount, movements.amount) AS amount,
-        COALESCE(overrides.total, movements.total) AS total,
+        COALESCE(
+          overrides.total,
+          movements.quantity * overrides.price,
+          movements.total
+        ) AS total,
         movements.source_name,
         movements.location_id,
         movements.other_location_id,

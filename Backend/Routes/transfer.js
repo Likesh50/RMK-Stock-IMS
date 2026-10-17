@@ -71,7 +71,9 @@ router.post('/createTransfer', async (req, res) => {
          FOR UPDATE`,
         [itemId, sourceLocationId]
       );
-      const valuation = allocateFifo(sourceBatches, transferQuantity, transferDate);
+      const valuation = allocateFifo(sourceBatches, transferQuantity, transferDate, {
+        allowSameDayAcquired: true
+      });
 
       const [toStock] = await connection.query(
         "SELECT quantity FROM stock WHERE item_id = ? AND location_id = ? FOR UPDATE",

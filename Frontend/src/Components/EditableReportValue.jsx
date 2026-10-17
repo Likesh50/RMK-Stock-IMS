@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 function EditableReportValue({ value, overrideKey, field, onSaved }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [draft, setDraft] = useState(value == null ? '' : String(value));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -32,7 +33,8 @@ function EditableReportValue({ value, overrideKey, field, onSaved }) {
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_RMK_MESS_URL}/report/valueOverride`,
-        { override_key: overrideKey, field, value: numericValue, token: window.sessionStorage.getItem('token') }
+        { override_key: overrideKey, field, value: numericValue },
+        { headers: { Authorization: `Bearer ${window.sessionStorage.getItem('token') || ''}` } }
       );
       onSaved?.(response.data.value);
       setSaveError(false);
@@ -40,6 +42,10 @@ function EditableReportValue({ value, overrideKey, field, onSaved }) {
       console.error('Failed to save report value:', error);
       setDraft(value == null ? '' : String(value));
       setSaveError(true);
+      if (error.response?.status === 401) {
+        ['token', 'role', 'uname', 'userlocations'].forEach(key => window.sessionStorage.removeItem(key));
+        navigate('/', { replace: true, state: { authMessage: 'Your session expired. Please sign in again before editing reports.' } });
+      }
     } finally {
       setSaving(false);
     }

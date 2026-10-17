@@ -43,9 +43,31 @@ router.get('/stockAvailability/:item_id/:location_id', async (req, res) => {
   }
 
   let connection;
+  let dispatchContext = null;
   try {
     connection = await db.getConnection();
+
+    const [valuationTables] = await connection.query(
+      `SELECT TABLE_NAME
+       FROM INFORMATION_SCHEMA.TABLES
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME IN ('inventory_batches', 'dispatch_allocations')`
+    );
+    const presentTables = new Set(valuationTables.map(row => row.TABLE_NAME));
+    const missingTables = ['inventory_batches', 'dispatch_allocations']
+      .filter(tableName => !presentTables.has(tableName));
+    if (missingTables.length) {
+      const schemaError = new Error(
+        `Dispatch valuation schema is missing: ${missingTables.join(', ')}. Apply Backend/migrations/20261006_inventory_batch_valuation.sql manually.`
+      );
+      schemaError.statusCode = 503;
+      throw schemaError;
+    }
+
     await connection.beginTransaction();
+    const [[{ databaseToday }]] = await connection.query(
+      "SELECT DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS databaseToday"
+    );
 
     for (const item of arr) {
       const { item_id, quantity, receiver, incharge, dispatch_date, block_id, sticker_no } = item;
@@ -59,6 +81,12 @@ router.get('/stockAvailability/:item_id/:location_id', async (req, res) => {
       if (!Number.isInteger(itemId) || itemId <= 0 || !Number.isInteger(locationId) || locationId <= 0 || !dispatchDate) {
         throw new Error('Invalid item, location or dispatch date');
       }
+      dispatchContext = {
+        item_id: itemId,
+        requested_quantity: requestedQuantity,
+        dispatch_date: dispatchDate,
+        location_id: locationId
+      };
 
       const [stockRows] = await connection.query(
         'SELECT quantity FROM stock WHERE item_id = ? AND location_id = ? FOR UPDATE',
@@ -91,7 +119,25 @@ router.get('/stockAvailability/:item_id/:location_id', async (req, res) => {
          FOR UPDATE`,
         [itemId, locationId]
       );
-      const valuation = allocateFifo(batchRows, requestedQuantity, dispatchDate);
+      let valuation;
+      try {
+        valuation = allocateFifo(batchRows, requestedQuantity, dispatchDate, {
+          // Same-day acquired batches are safe only for a dispatch recorded
+          // today; historical event ordering within that date is unknown.
+          // available_date itself is inclusive in allocateFifo.
+          allowSameDayAcquired: dispatchDate === databaseToday
+        });
+      } catch (error) {
+        if (error.code === 'INSUFFICIENT_ELIGIBLE_BATCH_STOCK') {
+          console.error('Dispatch batch eligibility rejected:', JSON.stringify({
+            ...dispatchContext,
+            eligible_quantity: error.diagnostics?.eligible_quantity ?? 0,
+            eligible_batches: error.diagnostics?.eligible_batches ?? [],
+            excluded_batches: error.diagnostics?.excluded_batches ?? []
+          }));
+        }
+        throw error;
+      }
 
       const [dispatchResult] = await connection.query(
         `INSERT INTO dispatch 
@@ -160,8 +206,18 @@ router.get('/stockAvailability/:item_id/:location_id', async (req, res) => {
 
   } catch (error) {
     if (connection) await connection.rollback();
-    console.error('Error in dispatch creation:', error.message);
-    res.status(500).json({ error: error.message || 'Internal Server Error' });
+    console.error('Error in dispatch creation:', error.message, dispatchContext ? JSON.stringify(dispatchContext) : '');
+    const response = { error: error.message || 'Internal Server Error' };
+    if (error.code === 'INSUFFICIENT_ELIGIBLE_BATCH_STOCK') {
+      Object.assign(response, {
+        code: error.code,
+        ...dispatchContext,
+        eligible_quantity: error.diagnostics?.eligible_quantity ?? 0,
+        eligible_batches: error.diagnostics?.eligible_batches ?? [],
+        excluded_batches: error.diagnostics?.excluded_batches ?? []
+      });
+    }
+    res.status(error.statusCode || 500).json(response);
   } finally {
     if (connection) connection.release();
   }

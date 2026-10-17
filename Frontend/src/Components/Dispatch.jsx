@@ -454,7 +454,32 @@ const fetchAvailableStock = async (rowId, itemId) => {
       setReceiver('');
     } catch (error) {
       console.error("Error dispatching items:", error);
-      toast.error("Error dispatching items. Please try again.");
+      const response = error.response?.data;
+      if (error.response?.status === 409 && response?.code === 'INSUFFICIENT_ELIGIBLE_BATCH_STOCK') {
+        const excludedBatches = response.excluded_batches || [];
+        const hasAcquisitionDateBlock = excludedBatches.some(batch =>
+          batch.exclusion_reasons?.includes('acquired_after_dispatch_date')
+        );
+        const hasAvailabilityDateBlock = excludedBatches.some(batch =>
+          batch.exclusion_reasons?.includes('available_after_dispatch_date')
+        );
+        const dateDetails = excludedBatches.slice(0, 3)
+          .map(batch => `batch ${batch.batch_id}: acquired ${batch.acquired_date}, available ${batch.available_date}`)
+          .join('; ');
+        const additionalBatchCount = Math.max(0, excludedBatches.length - 3);
+        const reason = hasAcquisitionDateBlock
+          ? 'The selected dispatch date is before the recorded acquisition date.'
+          : hasAvailabilityDateBlock
+            ? 'The selected dispatch date is before the recorded stock availability date.'
+            : 'There is not enough eligible batch stock on the selected date.';
+        const nextStep = hasAcquisitionDateBlock || hasAvailabilityDateBlock
+          ? 'Select a date on or after the stock availability date, or verify the purchase and receipt dates against the source documents.'
+          : 'Check the current stock quantity and batch availability for this date.';
+        const quantityDetails = `Eligible quantity: ${response.eligible_quantity ?? 0}; requested: ${response.requested_quantity ?? 'unknown'}.`;
+        toast.error(`${reason} ${dateDetails}${additionalBatchCount ? `; and ${additionalBatchCount} more batch(es)` : ''}. ${quantityDetails} ${nextStep}`, { autoClose: 10000 });
+      } else {
+        toast.error(response?.error || "Error dispatching items. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -550,6 +575,7 @@ const fetchAvailableStock = async (rowId, itemId) => {
                         }
                       : null
                   }
+                  isOptionEqualToValue={(option, value) => option?.id === value?.id}
                   onChange={(e, newValue) => handleInputChange(row.id, 'item', newValue ? newValue.id : '')}
                   renderInput={(params) => <TextField {...params} label="Item" variant="outlined" size="small" />}
                   sx={{ width: 180 }}
@@ -585,6 +611,7 @@ const fetchAvailableStock = async (rowId, itemId) => {
                   }
                 : null
             }
+            isOptionEqualToValue={(option, value) => option?.id === value?.id}
 
             onChange={(e, newValue) =>
               handleInputChange(row.id, 'block_id', newValue ? newValue.id : '')

@@ -32,6 +32,25 @@ test('keeps legacy quantities identifiable as unvalued instead of assigning a ra
   assert.equal(result.allocations[0].unit_rate, null);
 });
 
+test('allows migrated legacy opening stock for a backdated dispatch without inventing its cost', () => {
+  const result = allocateFifo([
+    {
+      batch_id: 7,
+      batch_type: 'legacy',
+      purchase_id: null,
+      acquired_date: '2026-10-16',
+      available_date: '2026-10-16',
+      remaining_quantity: 1,
+      unit_rate: null,
+      valuation_status: 'legacy_unvalued'
+    }
+  ], 1, '2026-10-14');
+
+  assert.equal(result.allocations[0].batch_id, 7);
+  assert.equal(result.amount, null);
+  assert.equal(result.allocations[0].unit_rate, null);
+});
+
 test('consumes migration opening stock before later-entered backdated purchases', () => {
   const result = allocateFifo([
     { batch_id: 1, batch_type: 'purchase', purchase_id: 10, acquired_date: '2025-01-01', available_date: '2026-02-01', remaining_quantity: 10, unit_rate: 100 },
@@ -68,7 +87,66 @@ test('does not use a batch acquired on the dispatch date when event order is unk
   );
 });
 
-test('preserves a transferred lot original FIFO age but waits until it is available', () => {
+test('allows a batch on its available date for dispatches, including backdated dispatches', () => {
+  const batch = {
+    batch_id: 2049,
+    batch_type: 'purchase',
+    purchase_id: 3580,
+    item_id: 1094,
+    location_id: 1,
+    acquired_date: '2026-10-14',
+    available_date: '2026-10-16',
+    remaining_quantity: 200,
+    unit_rate: 309.32
+  };
+
+  assert.throws(
+    () => allocateFifo([batch], 100, '2026-10-07'),
+    error => error.diagnostics.excluded_batches[0].exclusion_reasons[0] === 'acquired_after_dispatch_date'
+  );
+  assert.throws(
+    () => allocateFifo([batch], 100, '2026-10-14'),
+    error => error.diagnostics.excluded_batches[0].exclusion_reasons[0] === 'acquired_after_dispatch_date'
+  );
+
+  const result = allocateFifo([batch], 100, '2026-10-16');
+  assert.equal(result.amount, 30932);
+  assert.equal(result.allocations[0].batch_id, 2049);
+});
+
+test('allows same-day acquired stock only when explicitly recorded as acquired today', () => {
+  const batch = {
+    batch_id: 18,
+    batch_type: 'purchase',
+    acquired_date: '2026-10-17',
+    available_date: '2026-10-17',
+    remaining_quantity: 3,
+    unit_rate: 125
+  };
+
+  assert.throws(
+    () => allocateFifo([batch], 1, '2026-10-17'),
+    /Insufficient eligible batch stock/
+  );
+  assert.equal(allocateFifo([batch], 1, '2026-10-17', { allowSameDayAcquired: true }).amount, 125);
+});
+
+test('includes eligible quantity and exclusion reasons on insufficient dated stock', () => {
+  assert.throws(
+    () => allocateFifo([
+      { batch_id: 16, batch_type: 'legacy', acquired_date: '2026-10-16', available_date: '2026-10-16', remaining_quantity: 2, unit_rate: null },
+      { batch_id: 17, batch_type: 'transfer', acquired_date: '2026-10-15', available_date: '2026-10-17', remaining_quantity: 3, unit_rate: 100 }
+    ], 4, '2026-10-16'),
+    error => {
+      assert.match(error.message, /Insufficient eligible batch stock/);
+      assert.equal(error.diagnostics.eligible_quantity, 2);
+      assert.deepEqual(error.diagnostics.excluded_batches[0].exclusion_reasons, ['available_after_dispatch_date']);
+      return true;
+    }
+  );
+});
+
+test('preserves a transferred lot original FIFO age and permits its available date', () => {
   const batch = {
     batch_id: 3,
     batch_type: 'transfer',
@@ -79,10 +157,7 @@ test('preserves a transferred lot original FIFO age but waits until it is availa
     unit_rate: 100
   };
 
-  assert.throws(
-    () => allocateFifo([batch], 2, '2026-02-01'),
-    /Insufficient eligible batch stock/
-  );
+  assert.equal(allocateFifo([batch], 2, '2026-02-01').amount, 200);
   assert.equal(allocateFifo([batch], 2, '2026-02-02').amount, 200);
 });
 
