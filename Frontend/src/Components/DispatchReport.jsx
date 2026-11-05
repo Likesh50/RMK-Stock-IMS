@@ -474,7 +474,6 @@ const selectedLocationDisplay =
   // Fetch data
   useEffect(() => {
   if (!locations.length) return;
-
   setLoading(true);
 
   const fetchData = async () => {

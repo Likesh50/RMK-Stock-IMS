@@ -546,7 +546,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                 <th style={{width:64}}>SNo</th>
                 <th style={{minWidth:140}}>Date</th>
                 <th style={{minWidth:220}}>Source</th>
-                <th style={{width:120}}>Type</th>
+                <th style={{minWidth:160}}>Block Name</th>
+                <th style={{minWidth:120}}>Sticker No</th>
                 <th style={{width:100, textAlign:'right'}}>Qty</th>
                 <th style={{width:120, textAlign:'right'}}>Price</th>
                 <th style={{width:140, textAlign:'right'}}>Total</th>
@@ -555,7 +556,7 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{padding:20, textAlign:'center'}}>No records to show. Select an item and date range.</td>
+                  <td colSpan="8" style={{padding:20, textAlign:'center'}}>No records to show. Select an item and date range.</td>
                 </tr>
               ) : rows.map((r, idx) => {
                 const key = `${idx}-${r.date}-${r.source_type}-${r.location_id || ''}`;
@@ -565,7 +566,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="center">{idx+1}</td>
                       <td className="left">{editable ? <EditableReportCell value={r.date} sourceType="purchase" recordId={Number(r.override_key?.split(':')[1])} field="date" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'date', value)} /> : formatDate(r.date)}</td>
                       <td className="left">{editable ? <EditableReportCell value={r.source_name || 'Purchase'} sourceType="purchase" recordId={Number(r.override_key?.split(':')[1])} field="shop_name" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'source_name', value)} /> : (r.source_name || 'Purchase')}</td>
-                      <td className="center">Purchase</td>
+                    <td></td>
+                    <td></td>
                       <td className="right">{editable ? <EditableReportCell value={r.quantity} sourceType="purchase" recordId={Number(r.override_key?.split(':')[1])} field="quantity" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'quantity', value)} align="right" /> : fNum(r.quantity)}</td>
                       <td className="right">{renderMoneyEditor(r, 'price')}</td>
                       <td className="right">{renderMoneyEditor(r, 'total')}</td>
@@ -577,7 +579,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="center">{idx+1}</td>
                       <td className="left">{editable ? <EditableReportCell value={r.date} sourceType="dispatch" recordId={Number(r.override_key?.split(':')[1])} field="date" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'date', value)} /> : formatDate(r.date)}</td>
                       <td className="left">{editable ? <EditableReportCell value={r.source_name || 'Dispatch'} sourceType="dispatch" recordId={Number(r.override_key?.split(':')[1])} field="block_name" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'source_name', value)} /> : (r.source_name || 'Dispatch')}</td>
-                      <td className="center">Dispatch</td>
+                      <td className="left">{r.block_name || ''}</td>
+                      <td className="left">{r.sticker_no || ''}</td>
                       <td className="right">{editable ? <EditableReportCell value={r.quantity} sourceType="dispatch" recordId={Number(r.override_key?.split(':')[1])} field="quantity" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'quantity', value)} align="right" /> : fNum(r.quantity)}</td>
                       <td className="right">{renderMoneyEditor(r, 'price')}</td>
                       <td className="right">{renderMoneyEditor(r, 'total')}</td>
@@ -589,7 +592,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="center">{idx+1}</td>
                       <td className="left">{editable ? <EditableReportCell value={r.date} sourceType="transfer" recordId={Number(r.override_key?.split(':')[1])} field="date" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'date', value)} /> : formatDate(r.date)}</td>
                       <td className="left">{editable ? <EditableReportCell value={r.source_name || 'Transfer In'} sourceType="transfer" recordId={Number(r.override_key?.split(':')[1])} field="block_name" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'source_name', value)} /> : (r.source_name || 'Transfer In')}</td>
-                      <td className="center">Transfer In</td>
+                      <td></td>
+                      <td></td>
                       <td className="right">{editable ? <EditableReportCell value={r.quantity} sourceType="transfer" recordId={Number(r.override_key?.split(':')[1])} field="quantity" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'quantity', value)} align="right" /> : fNum(r.quantity)}</td>
                       <td className="right">{renderMoneyEditor(r, 'price')}</td>
                       <td className="right">{renderMoneyEditor(r, 'total')}</td>
@@ -601,7 +605,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="center">{idx+1}</td>
                       <td className="left">{editable ? <EditableReportCell value={r.date} sourceType="transfer" recordId={Number(r.override_key?.split(':')[1])} field="date" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'date', value)} /> : formatDate(r.date)}</td>
                       <td className="left">{editable ? <EditableReportCell value={r.source_name || 'Transfer Out'} sourceType="transfer" recordId={Number(r.override_key?.split(':')[1])} field="block_name" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'source_name', value)} /> : (r.source_name || 'Transfer Out')}</td>
-                      <td className="center">Transfer Out</td>
+                    <td></td>
+                    <td></td>
                       <td className="right">{editable ? <EditableReportCell value={r.quantity} sourceType="transfer" recordId={Number(r.override_key?.split(':')[1])} field="quantity" itemId={selectedItem?.value} onSaved={value => handleValueSaved(r.override_key, 'quantity', value)} align="right" /> : fNum(r.quantity)}</td>
                       <td className="right">{renderMoneyEditor(r, 'price')}</td>
                       <td className="right">{renderMoneyEditor(r, 'total')}</td>
@@ -613,7 +618,8 @@ const ItemMovementReport = forwardRef(({ fromDate: propFromDate, toDate: propToD
                       <td className="center">{idx+1}</td>
                       <td className="left">{formatDate(r.date)}</td>
                       <td className="left">{r.source_name || ''}</td>
-                      <td className="center">{r.source_type}</td>
+                    <td></td>
+                    <td></td>
                       <td className="right">{fNum(r.quantity)}</td>
                       <td className="right">{renderMoneyEditor(r, 'price')}</td>
                       <td className="right">{renderMoneyEditor(r, 'total')}</td>

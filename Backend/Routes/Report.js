@@ -475,7 +475,9 @@ router.get('/itemMovement', async (req, res) => {
         s.name AS source_name,
         p.location_id,
         NULL AS other_location_id,
-        CONCAT('purchase:', p.purchase_id) AS override_key
+        CONCAT('purchase:', p.purchase_id) AS override_key,
+        NULL AS block_name,
+        NULL AS sticker_no
       FROM purchases p
       LEFT JOIN shops s ON p.shop_id = s.id
       WHERE p.item_id = ?
@@ -526,7 +528,9 @@ router.get('/itemMovement', async (req, res) => {
         COALESCE(b.block_name, CONCAT('Dispatch from loc ', d.location_id)) AS source_name,
         d.location_id,
         NULL AS other_location_id,
-        CONCAT('dispatch:', d.dispatch_id) AS override_key
+        CONCAT('dispatch:', d.dispatch_id) AS override_key,
+        b.block_name AS block_name,
+        d.sticker_no AS sticker_no
       FROM dispatch d
       LEFT JOIN blocks b ON b.block_id = d.block_id
       LEFT JOIN (
@@ -584,7 +588,9 @@ router.get('/itemMovement', async (req, res) => {
         CONCAT('TRANSFER to ', COALESCE(loc_to.location_name, t.to_location_id)) AS source_name,
         t.from_location_id AS location_id,
         t.to_location_id AS other_location_id,
-        CONCAT('transfer:', t.transfer_id) AS override_key
+        CONCAT('transfer:', t.transfer_id) AS override_key,
+        NULL AS block_name,
+        NULL AS sticker_no
       FROM transfer t
       LEFT JOIN locations loc_to ON loc_to.location_id = t.to_location_id
       LEFT JOIN (
@@ -641,8 +647,10 @@ router.get('/itemMovement', async (req, res) => {
         CONCAT('TRANSFER from ', COALESCE(loc_from.location_name, t.from_location_id)) AS source_name,
         t.to_location_id AS location_id,
         t.from_location_id AS other_location_id,
-        CONCAT('transfer:', t.transfer_id) AS override_key
-      FROM transfer t
+        CONCAT('transfer:', t.transfer_id) AS override_key,
+        NULL AS block_name,
+        NULL AS sticker_no      
+        FROM transfer t
       LEFT JOIN locations loc_from ON loc_from.location_id = t.from_location_id
       LEFT JOIN (
         SELECT
@@ -678,7 +686,9 @@ router.get('/itemMovement', async (req, res) => {
         movements.source_name,
         movements.location_id,
         movements.other_location_id,
-        movements.override_key
+        movements.override_key,
+        movements.block_name,
+        movements.sticker_no
       FROM (
         ${purchaseSelect}
         UNION ALL
@@ -734,6 +744,8 @@ router.get('/itemMovement', async (req, res) => {
         shop_name: r.shop_name || null,
         purchase_date: r.purchase_date,
         location_id: r.location_id,
+        block_name: r.block_name || null,
+        sticker_no: r.sticker_no || null,
 
         // transfer-specific
         from_location_id: r.from_location_id || null,
