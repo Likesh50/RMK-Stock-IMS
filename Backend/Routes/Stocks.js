@@ -79,7 +79,9 @@ router.get('/availablestock', async (req, res) => {
       const calculatedPrice = isValued && quantity > 0
         ? valuedAmount / quantity
         : isValued ? 0 : null;
-      const calculatedTotal = isValued ? Number(valuedAmount.toFixed(2)) : null;
+      //const calculatedTotal = isValued ? Number(valuedAmount.toFixed(2)) : null;
+      const hasValuedQuantity = batchQuantity > unvaluedQuantity;
+const calculatedTotal = hasValuedQuantity ? Number(valuedAmount.toFixed(2)) : null;
       const price = stock.overridePrice == null ? calculatedPrice : Number(stock.overridePrice);
       const total = stock.overrideTotal == null ? calculatedTotal : Number(stock.overrideTotal);
 
